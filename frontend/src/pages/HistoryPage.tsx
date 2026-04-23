@@ -49,7 +49,6 @@ const formatCompactNumber = (value: number) => {
   if (value >= 1000) {
     return `${(value / 1000).toFixed(1)}k`;
   }
-
   return `${value}`;
 };
 
@@ -70,18 +69,16 @@ const HistoryMetricCard = ({
   title: string;
   value: string;
 }) => (
-  <div className="rounded-[31px] border border-[#22314f] bg-[#1a202c] px-[32px] py-[36px]">
-    <div className="flex items-center gap-[31px]">
-      <div className="flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-[#342920] text-[#ff7a12]">
-        <Icon className="h-[34px] w-[34px]" />
+  <div className="rounded-2xl border border-panelBorder bg-panel p-6 flex items-center gap-4">
+    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-900/30 text-primary">
+      <Icon className="h-6 w-6" />
+    </div>
+    <div>
+      <div className="text-2xl font-bold tracking-tight text-textMain">
+        {value}
       </div>
-      <div>
-        <div className="text-[42px] font-[700] leading-none tracking-[-0.04em] text-[#f4f6fb]">
-          {value}
-        </div>
-        <div className="mt-[14px] text-[26px] font-[600] leading-none tracking-[-0.03em] text-[#97a6c1]">
-          {title}
-        </div>
+      <div className="text-sm font-medium text-textMuted mt-0.5">
+        {title}
       </div>
     </div>
   </div>
@@ -165,218 +162,208 @@ export const HistoryPage = ({ onNavigate }: HistoryPageProps) => {
     const identified = historyItems.reduce((total, item) => total + item.foods.length, 0);
 
     return [
-      { icon: StatsIcon, title: "Total", value: `${pagination.total}` },
-      { icon: CalendarIcon, title: "Weekly", value: `${weeklyCount}` },
-      { icon: BoltIcon, title: "Avg Cal", value: formatCompactNumber(averageCalories) },
-      { icon: ForkKnifeIcon, title: "Identified", value: `${identified}` },
+      { icon: StatsIcon, title: "Total Items", value: `${pagination.total}` },
+      { icon: CalendarIcon, title: "This Week", value: `${weeklyCount}` },
+      { icon: BoltIcon, title: "Avg Calories", value: formatCompactNumber(averageCalories) },
+      { icon: ForkKnifeIcon, title: "Ingredients", value: `${identified}` },
     ] as const;
   }, [historyItems, pagination.total]);
 
   const hasMore = historyItems.length < pagination.total;
 
   return (
-    <main className="mx-auto max-w-[880px] overflow-hidden px-[48px] pb-[67px] pt-[52px]">
-      <div className="flex items-center gap-[11px] text-[20px] font-[700] tracking-[-0.025em] text-[#99a8c2]">
-        <button className="text-inherit" type="button" onClick={() => onNavigate("/")}>
-          Dashboard
-        </button>
-        <BreadcrumbChevronIcon className="h-[20px] w-[20px]" />
-        <span className="text-[#f4f6fb]">History</span>
-      </div>
-
-      <h1 className="mt-[16px] text-[64px] font-[700] leading-[0.98] tracking-[-0.055em] text-[#f4f6fb]">
-        Detection History
-      </h1>
-      <p className="mt-[18px] text-[30px] font-[400] leading-[1.35] tracking-[-0.03em] text-[#97a6c1]">
-        Review your analyzed food items
-      </p>
-
-      <section className="mt-[52px] grid grid-cols-2 gap-[32px]">
-        {primaryCards.map((card) => (
-          <HistoryMetricCard
-            key={card.title}
-            icon={card.icon}
-            title={card.title}
-            value={card.value}
-          />
-        ))}
-      </section>
-
-      <section className="mt-[60px] flex items-center gap-[31px]">
-        <div className="flex h-[85px] flex-1 items-center gap-[18px] rounded-[18px] bg-[#1a202c] px-[20px]">
-          <SearchIcon className="h-[35px] w-[35px] text-[#f4f6fb]" />
-          <input
-            className="w-full border-none bg-transparent p-0 text-[34px] font-[400] tracking-[-0.03em] text-[#f4f6fb] placeholder:text-[#55647f] focus:outline-none"
-            placeholder="Search history..."
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-          />
-        </div>
-        <button
-          className="flex h-[106px] w-[108px] items-center justify-center rounded-[24px] border border-[#22314f] bg-[#1a202c] text-[#f4f6fb]"
-          type="button"
-        >
-          <SlidersIcon className="h-[40px] w-[40px]" />
-        </button>
-      </section>
-
-      <section className="mt-[52px] flex items-center gap-[34px]">
-        <div className="flex items-center gap-[23px]">
-          <SquareIcon className="h-[40px] w-[40px] text-[#c6c1d0]" />
-          <span className="text-[26px] font-[500] tracking-[-0.03em] text-[#f4f6fb]">
-            Select All
-          </span>
-        </div>
-        <div className="relative flex-1">
-          <select
-            className="h-[95px] w-full appearance-none rounded-[24px] border border-[#22314f] bg-[#1a202c] px-[38px] text-[38px] font-[500] tracking-[-0.03em] text-[#f4f6fb] focus:outline-none"
-            value={sort}
-            onChange={(event) => {
-              setSort(event.target.value as SortValue);
-              setPagination((current) => ({ ...current, page: 1 }));
-            }}
-          >
-            <option value="desc">Newest</option>
-            <option value="asc">Oldest</option>
-          </select>
-          <ChevronDownIcon className="pointer-events-none absolute right-[30px] top-[34px] h-[28px] w-[28px] text-[#ff9a3d]" />
-        </div>
-      </section>
-
-      {errorMessage ? (
-        <section className="mt-[48px] rounded-[36px] border border-[#5b2430] bg-[#311821] px-[40px] py-[30px] text-[24px] font-[600] leading-[1.45] text-[#ffb4c2]">
-          {errorMessage}
-        </section>
-      ) : null}
-
-      {!errorMessage && !isFetching && historyItems.length === 0 ? (
-        <section className="mt-[48px] rounded-[36px] border border-[#22314f] bg-[#1a202c] px-[40px] py-[38px] text-[28px] font-[600] tracking-[-0.03em] text-[#97a6c1]">
-          No history available yet
-        </section>
-      ) : null}
-
-      <section className="mt-[48px] space-y-[43px]">
-        {historyItems.map((item) => {
-          const primaryFood = item.foods[0];
-          const confidence = primaryFood ? Math.round(primaryFood.confidence * 100) : 0;
-          const category = primaryFood ? foodCategories[primaryFood.name] ?? "Detected Item" : "Detected Item";
-
-          return (
-            <button
-              key={item.id}
-              className="w-full rounded-[36px] border border-[#22314f] bg-[#1a202c] px-[33px] pb-[41px] pt-[30px] text-left"
-              type="button"
-              onClick={() => {
-                setAnalysis(item);
-                onNavigate("/results");
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-[33px]">
-                  <SquareIcon className="h-[38px] w-[38px] text-[#c6c1d0]" />
-                  <span className="text-[24px] font-[600] tracking-[-0.03em] text-[#99a8c2]">
-                    {formatHistoryDate(item.createdAt)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-[38px] text-[#99a8c2]">
-                  <button
-                    className="text-inherit"
-                    type="button"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <RotateCwIcon className="h-[32px] w-[32px]" />
-                  </button>
-                  <button
-                    className="text-[#ff7d85]"
-                    type="button"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <TrashIcon className="h-[32px] w-[32px]" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-[42px] flex gap-[31px]">
-                <img
-                  alt={primaryFood?.name || "History food"}
-                  className="h-[128px] w-[128px] rounded-[28px] object-cover"
-                  src={item.imageUrl}
-                />
-                <div className="pt-[4px]">
-                  <div className="text-[31px] font-[700] leading-[1.1] tracking-[-0.03em] text-[#f4f6fb]">
-                    {primaryFood?.name || "Unknown Item"}
-                  </div>
-                  <div className="mt-[14px] text-[24px] font-[600] leading-none tracking-[-0.03em] text-[#99a8c2]">
-                    {category} • {Math.round(item.weight)}g
-                  </div>
-                  <div className="mt-[17px] flex items-center gap-[30px]">
-                    <div className="flex items-center gap-[10px] text-[24px] font-[700] tracking-[-0.03em] text-[#f4f6fb]">
-                      <FireIcon className="h-[24px] w-[24px] text-[#ff9a3d]" />
-                      {formatCalories(item.macros.calories)}
-                    </div>
-                    <div className="flex items-center gap-[10px] text-[24px] font-[700] tracking-[-0.03em] text-[#35d59a]">
-                      <TargetIcon className="h-[24px] w-[24px]" />
-                      {confidence}% match
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-[34px] grid grid-cols-3 rounded-[26px] bg-[#0f151f] px-[18px] py-[22px]">
-                {[
-                  { color: "#ff8c2c", label: "Protein", value: formatMacro(item.macros.protein) },
-                  { color: "#35d59a", label: "Carbs", value: formatMacro(item.macros.carbs) },
-                  { color: "#ff9b44", label: "Fat", value: formatMacro(item.macros.fat) },
-                ].map((macro) => (
-                  <div key={macro.label} className="text-center">
-                    <div
-                      className="text-[24px] font-[700] leading-none tracking-[-0.03em]"
-                      style={{ color: macro.color }}
-                    >
-                      {macro.value}
-                    </div>
-                    <div className="mt-[14px] text-[24px] font-[600] leading-none tracking-[-0.03em] text-[#99a8c2]">
-                      {macro.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-[38px] flex items-center justify-center gap-[16px] text-[#ff7a12]">
-                <EyeIcon className="h-[31px] w-[31px]" />
-                <span className="text-[24px] font-[700] tracking-[-0.03em]">View Details</span>
-              </div>
+    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto px-8 py-8">
+        <div className="max-w-5xl mx-auto pb-24">
+          
+          <div className="flex items-center gap-2 text-xs font-medium text-textMuted mb-2">
+            <HomeIcon className="h-4 w-4" />
+            <button className="hover:text-textMain transition-colors" type="button" onClick={() => onNavigate("/")}>
+              Dashboard
             </button>
-          );
-        })}
-      </section>
+            <BreadcrumbChevronIcon className="h-3 w-3" />
+            <span className="text-textMain">History</span>
+          </div>
 
-      {hasMore ? (
-        <button
-          className="mt-[52px] flex h-[84px] w-full items-center justify-center rounded-[26px] border border-[#a6a0a7] bg-transparent text-[25px] font-[700] tracking-[-0.03em] text-[#f4f6fb]"
-          disabled={isFetching}
-          type="button"
-          onClick={() =>
-            setPagination((current) => ({
-              ...current,
-              page: current.page + 1,
-            }))
-          }
-        >
-          {isFetching ? "Loading..." : "Load More History"}
-        </button>
-      ) : null}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-textMain">Detection History</h1>
+              <p className="mt-1 text-sm text-textMuted">Review your analyzed food items</p>
+            </div>
+            <button
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 transition-colors"
+              type="button"
+              onClick={() => onNavigate("/")}
+            >
+              <CameraIcon className="h-4 w-4" />
+              Upload Food
+            </button>
+          </div>
 
-      <div className="flex justify-end pt-[64px]">
-        <button
-          className="flex h-[96px] min-w-[309px] items-center justify-center gap-[17px] rounded-[48px] bg-[#ff9b44] px-[34px] text-[24px] font-[500] tracking-[-0.03em] text-white"
-          type="button"
-          onClick={() => onNavigate("/")}
-        >
-          <CameraIcon className="h-[34px] w-[34px]" />
-          Upload Food
-        </button>
+          <section className="grid grid-cols-4 gap-4 mb-8">
+            {primaryCards.map((card) => (
+              <HistoryMetricCard
+                key={card.title}
+                icon={card.icon}
+                title={card.title}
+                value={card.value}
+              />
+            ))}
+          </section>
+
+          <section className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+            <div className="flex-1 w-full relative">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-textMuted" />
+              <input
+                className="w-full rounded-lg border border-panelBorder bg-panel py-2.5 pl-10 pr-4 text-sm text-textMain placeholder-textMuted focus:border-primary focus:outline-none"
+                placeholder="Search history..."
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+            </div>
+            
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+              <div className="relative">
+                <select
+                  className="appearance-none rounded-lg border border-panelBorder bg-panel px-4 py-2.5 pr-10 text-sm font-medium text-textMain focus:border-primary focus:outline-none"
+                  value={sort}
+                  onChange={(event) => {
+                    setSort(event.target.value as SortValue);
+                    setPagination((current) => ({ ...current, page: 1 }));
+                  }}
+                >
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </select>
+                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted" />
+              </div>
+              <button
+                className="flex items-center justify-center rounded-lg border border-panelBorder bg-panel p-2.5 text-textMuted hover:text-textMain transition-colors"
+                type="button"
+              >
+                <SlidersIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </section>
+
+          {errorMessage ? (
+            <section className="mt-8 rounded-lg border border-danger/50 bg-danger/10 px-6 py-4 text-sm font-medium text-danger">
+              {errorMessage}
+            </section>
+          ) : null}
+
+          {!errorMessage && !isFetching && historyItems.length === 0 ? (
+            <section className="mt-8 rounded-2xl border border-dashed border-panelBorder bg-panel/30 px-6 py-12 text-center text-sm font-medium text-textMuted flex flex-col items-center">
+              <HistoryIcon className="h-8 w-8 mb-4 opacity-50" />
+              No history available yet
+            </section>
+          ) : null}
+
+          <section className="space-y-4">
+            {historyItems.map((item) => {
+              const primaryFood = item.foods[0];
+              const confidence = primaryFood ? Math.round(primaryFood.confidence * 100) : 0;
+              const category = primaryFood ? foodCategories[primaryFood.name] ?? "Detected Item" : "Detected Item";
+
+              return (
+                <button
+                  key={item.id}
+                  className="w-full group rounded-2xl border border-panelBorder bg-panel p-5 text-left hover:border-primary/50 transition-colors"
+                  type="button"
+                  onClick={() => {
+                    setAnalysis(item);
+                    onNavigate("/results");
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-panelBorder/50">
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-2 rounded-full bg-primary" />
+                      <span className="text-xs font-semibold text-textMuted">
+                        {formatHistoryDate(item.createdAt)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-textMuted opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="hover:text-primary transition-colors">
+                        <RotateCwIcon className="h-4 w-4" />
+                      </div>
+                      <div className="hover:text-danger transition-colors">
+                        <TrashIcon className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-6">
+                    <img
+                      alt={primaryFood?.name || "History food"}
+                      className="h-28 w-28 rounded-xl object-cover"
+                      src={item.imageUrl}
+                    />
+                    <div className="flex-1 pt-1">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="text-lg font-bold text-textMain">
+                          {primaryFood?.name || "Unknown Item"}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm font-bold text-success bg-success/10 px-2.5 py-1 rounded-full">
+                          <TargetIcon className="h-3.5 w-3.5" />
+                          {confidence}% match
+                        </div>
+                      </div>
+                      <div className="text-sm font-medium text-textMuted mb-4">
+                        {category} • {Math.round(item.weight)}g
+                      </div>
+                      
+                      <div className="grid grid-cols-4 gap-4">
+                        <div>
+                          <div className="text-xs font-medium text-textMuted mb-1 flex items-center gap-1">
+                            <FireIcon className="h-3 w-3 text-orange-500" /> Calories
+                          </div>
+                          <div className="text-base font-bold text-textMain">
+                            {formatCalories(item.macros.calories)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-medium text-textMuted mb-1">Protein</div>
+                          <div className="text-base font-bold text-purple-400">
+                            {formatMacro(item.macros.protein)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-medium text-textMuted mb-1">Carbs</div>
+                          <div className="text-base font-bold text-emerald-400">
+                            {formatMacro(item.macros.carbs)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-medium text-textMuted mb-1">Fat</div>
+                          <div className="text-base font-bold text-orange-400">
+                            {formatMacro(item.macros.fat)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </section>
+
+          {hasMore ? (
+            <button
+              className="mt-8 flex w-full items-center justify-center rounded-xl border border-panelBorder bg-panel py-3 text-sm font-medium text-textMain hover:bg-panelBorder/50 transition-colors"
+              disabled={isFetching}
+              type="button"
+              onClick={() =>
+                setPagination((current) => ({
+                  ...current,
+                  page: current.page + 1,
+                }))
+              }
+            >
+              {isFetching ? "Loading..." : "Load More History"}
+            </button>
+          ) : null}
+        </div>
       </div>
-    </main>
+    </div>
   );
 };

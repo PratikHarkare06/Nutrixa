@@ -56,35 +56,13 @@ const formatNumber = (value: number) => {
   if (Number.isInteger(value)) {
     return `${value}`;
   }
-
   return value.toFixed(2);
 };
 
 const truncateTitle = (value: string) => (value.length > 11 ? `${value.slice(0, 10)}...` : value);
 
-const renderPieLabel = ({
-  cx,
-  cy,
-  innerRadius,
-  outerRadius,
-  midAngle,
-  name,
-}: {
-  cx?: number;
-  cy?: number;
-  innerRadius?: number;
-  outerRadius?: number;
-  midAngle?: number;
-  name?: string;
-}) => {
-  if (
-    cx === undefined ||
-    cy === undefined ||
-    innerRadius === undefined ||
-    outerRadius === undefined ||
-    midAngle === undefined ||
-    !name
-  ) {
+const renderPieLabel = ({ cx, cy, innerRadius, outerRadius, midAngle, name }: any) => {
+  if (cx === undefined || cy === undefined || innerRadius === undefined || outerRadius === undefined || midAngle === undefined || !name) {
     return null;
   }
 
@@ -93,15 +71,7 @@ const renderPieLabel = ({
   const y = cy + radius * Math.sin((-midAngle * Math.PI) / 180);
 
   return (
-    <text
-      dominantBaseline="central"
-      fill="#FFFFFF"
-      fontSize="18"
-      fontWeight="700"
-      textAnchor="middle"
-      x={x}
-      y={y}
-    >
+    <text dominantBaseline="central" fill="#FFFFFF" fontSize="12" fontWeight="bold" textAnchor="middle" x={x} y={y}>
       {name}
     </text>
   );
@@ -136,18 +106,11 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   };
 
   const handleExport = (format: ExportFormat) => {
-    if (!analysis) {
-      return;
-    }
-
+    if (!analysis) return;
     setSelectedFormat(format);
 
     if (format === "JSON") {
-      downloadFile(
-        `nutrivision-analysis-${analysis.id}.json`,
-        JSON.stringify(analysis, null, 2),
-        "application/json",
-      );
+      downloadFile(`nutrivision-analysis-${analysis.id}.json`, JSON.stringify(analysis, null, 2), "application/json");
       setStatusMessage("JSON export downloaded.");
       return;
     }
@@ -164,7 +127,6 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
         `weight,${analysis.weight}`,
         ...analysis.foods.map((food, index) => `food_${index + 1},${food.name} (${food.confidence})`),
       ].join("\n");
-
       downloadFile(`nutrivision-analysis-${analysis.id}.csv`, csv, "text/csv;charset=utf-8");
       setStatusMessage("CSV export downloaded.");
       return;
@@ -197,12 +159,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
           <div class="row">Volume: ${analysis.volume} cm³</div>
           <div class="row">Weight: ${analysis.weight} g</div>
           <h2>Detected Food Items</h2>
-          ${analysis.foods
-            .map(
-              (food) =>
-                `<div class="row">${food.name} - ${(food.confidence * 100).toFixed(1)}%</div>`,
-            )
-            .join("")}
+          ${analysis.foods.map((food) => `<div class="row">${food.name} - ${(food.confidence * 100).toFixed(1)}%</div>`).join("")}
         </body>
       </html>
     `);
@@ -213,22 +170,14 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   };
 
   const handleShare = async () => {
-    if (!analysis) {
-      return;
-    }
-
+    if (!analysis) return;
     const shareText = `NutriVision analysis: ${analysis.macros.calories} kcal, ${analysis.macros.protein}g protein, ${analysis.macros.carbs}g carbs, ${analysis.macros.fat}g fat, ${analysis.macros.fiber}g fiber.`;
-
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: "NutriVision Analysis Results",
-          text: shareText,
-        });
+        await navigator.share({ title: "NutriVision Analysis Results", text: shareText });
         setStatusMessage("Results shared.");
         return;
       }
-
       await navigator.clipboard.writeText(shareText);
       setStatusMessage("Share text copied to clipboard.");
     } catch {
@@ -237,10 +186,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   };
 
   const handleCopy = async () => {
-    if (!analysis) {
-      return;
-    }
-
+    if (!analysis) return;
     try {
       await navigator.clipboard.writeText(JSON.stringify(analysis, null, 2));
       setStatusMessage("Analysis data copied to clipboard.");
@@ -250,325 +196,270 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   };
 
   const quickActions: QuickAction[] = [
-    {
-      description: "Upload new food",
-      icon: CameraIcon,
-      title: truncateTitle("Analyze Another"),
-      onClick: onBack,
-    },
-    {
-      description: "View recommendations",
-      icon: HeartIcon,
-      title: truncateTitle("Health Insights"),
-      onClick: () => onNavigate("/insights"),
-    },
-    {
-      description: "Preferences",
-      icon: UserIcon,
-      title: truncateTitle("Update Profile"),
-      onClick: () => onNavigate("/profile"),
-    },
-    {
-      description: "With friends",
-      icon: ShareIcon,
-      title: truncateTitle("Share Results"),
-      onClick: handleShare,
-    },
+    { description: "Upload new food", icon: CameraIcon, title: truncateTitle("Analyze Another"), onClick: onBack },
+    { description: "View recommendations", icon: HeartIcon, title: truncateTitle("Health Insights"), onClick: () => onNavigate("/insights") },
+    { description: "Preferences", icon: UserIcon, title: truncateTitle("Update Profile"), onClick: () => onNavigate("/profile") },
+    { description: "With friends", icon: ShareIcon, title: truncateTitle("Share Results"), onClick: handleShare },
   ];
 
   return (
-    <main className="mx-auto max-w-[880px] overflow-hidden px-[48px] pb-[68px] pt-[52px]">
-      <div className="flex items-center gap-[11px] text-[20px] font-[700] tracking-[-0.025em] text-[#99a8c2]">
-        <HomeIcon className="h-[24px] w-[24px] text-[#a7b4cb]" />
-        <button className="text-inherit" type="button" onClick={onBack}>
-          Dashboard
-        </button>
-        <BreadcrumbChevronIcon className="h-[20px] w-[20px]" />
-        <span className="text-[#ff7a12]">Analysis Results</span>
-      </div>
-
-      <h1 className="mt-[42px] text-[64px] font-[700] leading-[0.98] tracking-[-0.055em] text-[#f4f6fb]">
-        Nutritional Analysis Results
-      </h1>
-      <p className="mt-[20px] max-w-[792px] text-[29px] font-[400] leading-[1.48] tracking-[-0.033em] text-[#97a6c1]">
-        Comprehensive breakdown of your food&apos;s nutritional content and health insights
-      </p>
-
-      <div className="mt-[35px] flex gap-[16px]">
-        <button
-          className="flex h-[50px] min-w-[366px] items-center justify-center gap-[14px] rounded-[18px] bg-[#7d83eb] px-[22px] text-[25px] font-[700] tracking-[-0.03em] text-white"
-          type="button"
-          onClick={onBack}
-        >
-          <CameraIcon className="h-[28px] w-[28px]" />
-          Analyze New Food
-        </button>
-        <button
-          className="flex h-[50px] min-w-[290px] items-center justify-center gap-[14px] rounded-[18px] bg-[#7d83eb] px-[22px] text-[25px] font-[700] tracking-[-0.03em] text-white"
-          type="button"
-          onClick={() => onNavigate("/history")}
-        >
-          <HistoryIcon className="h-[28px] w-[28px]" />
-          View History
-        </button>
-      </div>
-
-      <div className="mt-[50px] flex gap-[15px]">
-        <button className="flex h-[67px] min-w-[235px] items-center justify-center gap-[14px] rounded-[18px] bg-[#ff7a12] px-[24px] text-[25px] font-[500] tracking-[-0.03em] text-white" type="button">
-          <OverviewIcon className="h-[32px] w-[32px]" />
-          Overview
-        </button>
-        <button className="flex h-[67px] min-w-[343px] items-center justify-center gap-[14px] rounded-[18px] border border-[#5b576f] bg-[#1a202c] px-[24px] text-[25px] font-[500] tracking-[-0.03em] text-white" type="button">
-          <ChartBarsIcon className="h-[32px] w-[32px]" />
-          Detailed Nutrition
-        </button>
-        <button className="flex h-[67px] min-w-[290px] items-center justify-center gap-[14px] rounded-[18px] border border-[#5b576f] bg-[#1a202c] px-[24px] text-[25px] font-[500] tracking-[-0.03em] text-white" type="button" onClick={() => onNavigate("/insights")}>
-          <HeartIcon className="h-[32px] w-[32px]" />
-          Health Insights
-        </button>
-      </div>
-
-      {!analysis ? (
-        <section className="mt-[48px] rounded-[36px] border border-[#22314f] bg-[#1a202c] px-[48px] py-[44px]">
-          <h2 className="text-[40px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">No analysis data available</h2>
-          <p className="mt-[18px] text-[24px] leading-[1.55] text-[#97a6c1]">
-            Upload a food image first to view nutritional analysis results.
-          </p>
-          <button
-            className="mt-[28px] flex h-[64px] items-center justify-center rounded-[24px] bg-[#ff7a12] px-[28px] text-[24px] font-[700] text-white"
-            type="button"
-            onClick={onBack}
-          >
-            Back to Dashboard
-          </button>
-        </section>
-      ) : (
-        <>
-          <section className="mt-[48px] rounded-[36px] border border-[#22314f] bg-[#1a202c] px-[48px] pb-[50px] pt-[46px]">
-            <div className="flex items-center gap-[18px] text-[#ff7a12]">
-              <CameraIcon className="h-[39px] w-[39px]" />
-              <h2 className="text-[37px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">
-                Food Detection Results
-              </h2>
-            </div>
-
-            <img
-              alt="Uploaded food"
-              className="mt-[44px] h-[400px] w-full rounded-[34px] object-cover"
-              src={analysis.imageUrl}
-            />
-
-            <h3 className="mt-[39px] text-center text-[28px] font-[600] tracking-[-0.03em] text-[#95a4bf]">
-              Detected Food Items
-            </h3>
-
-            <div className="mt-[30px] space-y-[27px]">
-              {analysis.foods.map((food) => (
-                <div key={food.name} className="flex items-start justify-between gap-[20px]">
-                  <div>
-                    <div className="text-[34px] font-[700] leading-none tracking-[-0.03em] text-[#f4f6fb]">
-                      {food.name}
-                    </div>
-                    <div className="mt-[14px] text-[22px] font-[600] leading-none tracking-[-0.03em] text-[#92a0ba]">
-                      {foodCategories[food.name] ?? "Detected Item"}
-                    </div>
-                  </div>
-                  <div className="pt-[8px] text-[31px] font-[700] leading-none tracking-[-0.03em] text-[#36d69b]">
-                    {(food.confidence * 100).toFixed(1)}%
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-[47px] grid grid-cols-2 gap-[32px]">
-              <div className="rounded-[24px] border border-[#22314f] bg-[#0b1119] px-[22px] pb-[31px] pt-[28px] text-center">
-                <RulerIcon className="mx-auto h-[32px] w-[32px] text-[#ff7a12]" />
-                <div className="mt-[24px] text-[24px] font-[600] tracking-[-0.03em] text-[#95a4bf]">
-                  Estimated Volume
-                </div>
-                <div className="mt-[14px] text-[33px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">
-                  {formatNumber(analysis.volume)} cm³
-                </div>
-              </div>
-              <div className="rounded-[24px] border border-[#22314f] bg-[#0b1119] px-[22px] pb-[31px] pt-[28px] text-center">
-                <ScaleIcon className="mx-auto h-[32px] w-[32px] text-[#ff7a12]" />
-                <div className="mt-[24px] text-[24px] font-[600] tracking-[-0.03em] text-[#95a4bf]">
-                  Estimated Weight
-                </div>
-                <div className="mt-[14px] text-[33px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">
-                  {formatNumber(analysis.weight)} g
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-[48px] rounded-[36px] border border-[#22314f] bg-[#1a202c] px-[48px] pb-[48px] pt-[46px]">
-            <div className="flex items-center gap-[18px] text-[#ff7a12]">
-              <MacroChartIcon className="h-[39px] w-[39px]" />
-              <h2 className="text-[37px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">
-                Macronutrient Breakdown
-              </h2>
-            </div>
-
-            <div className="mt-[34px] h-[392px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    dataKey="value"
-                    innerRadius={84}
-                    label={renderPieLabel}
-                    labelLine={false}
-                    outerRadius={146}
-                    paddingAngle={1.6}
-                    stroke="#1a202c"
-                    strokeWidth={4}
-                  >
-                    {chartData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mt-[2px] rounded-[30px] border border-[#22314f] bg-[#0b1119] px-[33px] py-[28px]">
-              <div className="flex items-center justify-between gap-[20px]">
-                <span className="text-[31px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">
-                  Total Calories
-                </span>
-                <span className="text-[31px] font-[700] tracking-[-0.04em] text-[#ff9a3d]">
-                  {formatNumber(analysis.macros.calories)} kcal
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-[44px] space-y-[41px]">
-              {[
-                { color: macroColors.protein, label: "Protein", value: `${formatNumber(analysis.macros.protein)}g` },
-                { color: macroColors.carbs, label: "Carbohydrates", value: `${formatNumber(analysis.macros.carbs)}g` },
-                { color: macroColors.fat, label: "Fat", value: `${formatNumber(analysis.macros.fat)}g` },
-                { color: macroColors.fiber, label: "Fiber", value: `${formatNumber(analysis.macros.fiber)}g` },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-[20px]">
-                  <div className="flex items-center gap-[18px]">
-                    <span className="h-[17px] w-[17px] rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[31px] font-[500] leading-none tracking-[-0.03em] text-[#f4f6fb]">
-                      {item.label}
-                    </span>
-                  </div>
-                  <span className="text-[31px] font-[600] leading-none tracking-[-0.03em] text-[#f4f6fb]">
-                    {item.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="mt-[49px] rounded-[36px] border border-[#22314f] bg-[#1a202c] px-[48px] pb-[44px] pt-[46px]">
-            <div className="flex items-center gap-[18px] text-[#ff7a12]">
-              <ShareIcon className="h-[39px] w-[39px]" />
-              <h2 className="text-[37px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">
-                Export &amp; Share
-              </h2>
-            </div>
-
-            <div className="mt-[42px] flex gap-[16px]">
-              {[
-                { icon: FileIcon, label: "PDF" as ExportFormat },
-                { icon: TableIcon, label: "CSV" as ExportFormat },
-                { icon: CodeBracketsIcon, label: "JSON" as ExportFormat },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.label}
-                    className={`flex h-[56px] min-w-[217px] items-center justify-center gap-[14px] rounded-[18px] border px-[24px] text-[25px] font-[700] tracking-[-0.03em] ${
-                      selectedFormat === item.label
-                        ? "border-[#7d83eb] bg-[#262b3d] text-[#f4f6fb]"
-                        : "border-[#96909c] bg-[#1a202c] text-[#f4f6fb]"
-                    }`}
-                    type="button"
-                    onClick={() => handleExport(item.label)}
-                  >
-                    <Icon className="h-[29px] w-[29px]" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-[34px] flex gap-[16px]">
-              <button
-                className="flex h-[68px] min-w-[335px] items-center justify-center gap-[16px] rounded-[22px] bg-[#ff7a12] px-[28px] text-[25px] font-[700] tracking-[-0.03em] text-white"
-                type="button"
-                onClick={handleShare}
-              >
-                <ShareIcon className="h-[28px] w-[28px]" />
-                Share Results
-              </button>
-              <button
-                className="flex h-[68px] min-w-[335px] items-center justify-center gap-[16px] rounded-[22px] bg-[#7d83eb] px-[28px] text-[25px] font-[700] tracking-[-0.03em] text-white"
-                type="button"
-                onClick={handleCopy}
-              >
-                <CopyIcon className="h-[28px] w-[28px]" />
-                Copy Data
-              </button>
-            </div>
-
-            <div className="mt-[33px] rounded-[28px] border border-[#22314f] bg-[#0b1119] px-[30px] py-[30px]">
-              <div className="flex items-start gap-[18px]">
-                <InfoIcon className="mt-[2px] h-[28px] w-[28px] shrink-0 text-[#93a1bb]" />
-                <p className="text-[25px] leading-[1.55] tracking-[-0.03em] text-[#93a1bb]">
-                  {statusMessage || "Exported data includes complete nutritional breakdown and detection results."}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section className="pt-[54px]">
-            <h2 className="text-[34px] font-[700] tracking-[-0.04em] text-[#f4f6fb]">Quick Actions</h2>
-            <div className="mt-[28px] grid grid-cols-2 gap-[18px]">
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-
-                return (
-                  <button
-                    key={action.title}
-                    className="flex min-h-[154px] items-center gap-[30px] rounded-[28px] border border-[#22314f] bg-[#1a202c] px-[32px] py-[30px] text-left"
-                    type="button"
-                    onClick={action.onClick}
-                  >
-                    <div className="flex h-[81px] w-[81px] items-center justify-center rounded-[22px] bg-[#0b1119] text-[#ff7a12]">
-                      <Icon className="h-[37px] w-[37px]" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-[29px] font-[700] tracking-[-0.03em] text-[#f4f6fb]">
-                        {action.title}
-                      </div>
-                      <div className="mt-[11px] truncate text-[23px] font-[600] tracking-[-0.03em] text-[#95a4bf]">
-                        {action.description}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              className="ml-auto mt-[22px] flex h-[89px] min-w-[319px] items-center justify-center gap-[16px] rounded-[45px] bg-[#ff7a12] px-[34px] text-[25px] font-[500] tracking-[-0.03em] text-white"
-              type="button"
-              onClick={() => onNavigate("/")}
-            >
-              <PlusIcon className="h-[36px] w-[36px]" />
-              New Analysis
+    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto px-8 py-8">
+        <div className="max-w-5xl mx-auto pb-24">
+          
+          <div className="flex items-center gap-2 text-xs font-medium text-textMuted mb-8">
+            <HomeIcon className="h-4 w-4" />
+            <button className="hover:text-textMain transition-colors" type="button" onClick={onBack}>
+              Dashboard
             </button>
-          </section>
-        </>
-      )}
-    </main>
+            <BreadcrumbChevronIcon className="h-3 w-3" />
+            <span className="text-primary">Analysis Results</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-textMain">Nutritional Analysis Results</h1>
+              <p className="mt-2 text-sm text-textMuted max-w-2xl">
+                Comprehensive breakdown of your food&apos;s nutritional content and health insights
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors"
+                type="button"
+                onClick={onBack}
+              >
+                <CameraIcon className="h-4 w-4" /> Analyze New
+              </button>
+              <button
+                className="flex items-center gap-2 rounded-lg bg-panel border border-panelBorder px-4 py-2 text-sm font-medium text-textMain hover:bg-panelBorder/50 transition-colors"
+                type="button"
+                onClick={() => onNavigate("/history")}
+              >
+                <HistoryIcon className="h-4 w-4" /> History
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mb-8">
+            <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="button">
+              <OverviewIcon className="h-4 w-4" /> Overview
+            </button>
+            <button className="flex items-center gap-2 rounded-lg bg-panel border border-panelBorder px-4 py-2.5 text-sm font-medium text-textMain hover:bg-panelBorder/50 transition-colors" type="button">
+              <ChartBarsIcon className="h-4 w-4" /> Detailed Nutrition
+            </button>
+            <button className="flex items-center gap-2 rounded-lg bg-panel border border-panelBorder px-4 py-2.5 text-sm font-medium text-textMain hover:bg-panelBorder/50 transition-colors" type="button" onClick={() => onNavigate("/insights")}>
+              <HeartIcon className="h-4 w-4 text-purple-400" /> Health Insights
+            </button>
+          </div>
+
+          {!analysis ? (
+            <section className="rounded-2xl border border-panelBorder bg-panel p-12 text-center">
+              <h2 className="text-xl font-bold text-textMain">No analysis data available</h2>
+              <p className="mt-2 text-sm text-textMuted max-w-md mx-auto">
+                Upload a food image first to view nutritional analysis results.
+              </p>
+              <button
+                className="mt-6 mx-auto flex items-center justify-center rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-orange-600 transition-colors"
+                type="button"
+                onClick={onBack}
+              >
+                Back to Dashboard
+              </button>
+            </section>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
+                      <CameraIcon className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-lg font-bold text-textMain">Food Detection Results</h2>
+                  </div>
+
+                  <img
+                    alt="Uploaded food"
+                    className="h-64 w-full rounded-xl object-cover mb-6 border border-panelBorder"
+                    src={analysis.imageUrl}
+                  />
+
+                  <h3 className="text-sm font-semibold text-textMuted uppercase tracking-wider mb-4">Detected Items</h3>
+
+                  <div className="space-y-4 mb-6">
+                    {analysis.foods.map((food) => (
+                      <div key={food.name} className="flex items-center justify-between p-4 rounded-xl bg-background border border-panelBorder">
+                        <div>
+                          <div className="text-base font-bold text-textMain">{food.name}</div>
+                          <div className="text-xs text-textMuted mt-1">{foodCategories[food.name] ?? "Detected Item"}</div>
+                        </div>
+                        <div className="text-sm font-bold text-success bg-success/10 px-3 py-1.5 rounded-lg">
+                          {(food.confidence * 100).toFixed(1)}% Match
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-panelBorder bg-background p-4 text-center">
+                      <RulerIcon className="mx-auto h-6 w-6 text-primary mb-2" />
+                      <div className="text-xs font-medium text-textMuted mb-1">Estimated Volume</div>
+                      <div className="text-lg font-bold text-textMain">{formatNumber(analysis.volume)} cm³</div>
+                    </div>
+                    <div className="rounded-xl border border-panelBorder bg-background p-4 text-center">
+                      <ScaleIcon className="mx-auto h-6 w-6 text-primary mb-2" />
+                      <div className="text-xs font-medium text-textMuted mb-1">Estimated Weight</div>
+                      <div className="text-lg font-bold text-textMain">{formatNumber(analysis.weight)} g</div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+                  <h2 className="text-lg font-bold text-textMain mb-6">Quick Actions</h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    {quickActions.map((action) => {
+                      const Icon = action.icon;
+                      return (
+                        <button
+                          key={action.title}
+                          className="flex flex-col items-center justify-center p-4 rounded-xl border border-panelBorder bg-background hover:border-primary/50 transition-colors text-center"
+                          type="button"
+                          onClick={action.onClick}
+                        >
+                          <div className="h-10 w-10 flex items-center justify-center rounded-full bg-panel border border-panelBorder mb-3 text-primary">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div className="text-sm font-bold text-textMain">{action.title}</div>
+                          <div className="text-[10px] text-textMuted mt-1">{action.description}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-orange-600 transition-colors"
+                    type="button"
+                    onClick={() => onNavigate("/")}
+                  >
+                    <PlusIcon className="h-4 w-4" /> New Analysis
+                  </button>
+                </section>
+              </div>
+
+              <div className="space-y-6">
+                <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
+                      <MacroChartIcon className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-lg font-bold text-textMain">Macronutrient Breakdown</h2>
+                  </div>
+
+                  <div className="h-64 mb-6 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          cx="50%"
+                          cy="50%"
+                          dataKey="value"
+                          innerRadius={60}
+                          outerRadius={90}
+                          paddingAngle={2}
+                          stroke="none"
+                          label={renderPieLabel}
+                          labelLine={false}
+                        >
+                          {chartData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-2xl font-bold text-textMain leading-none">{formatNumber(analysis.macros.calories)}</span>
+                      <span className="text-xs text-textMuted mt-1">kcal</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { color: macroColors.protein, label: "Protein", value: `${formatNumber(analysis.macros.protein)}g` },
+                      { color: macroColors.carbs, label: "Carbohydrates", value: `${formatNumber(analysis.macros.carbs)}g` },
+                      { color: macroColors.fat, label: "Fat", value: `${formatNumber(analysis.macros.fat)}g` },
+                      { color: macroColors.fiber, label: "Fiber", value: `${formatNumber(analysis.macros.fiber)}g` },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between p-3 rounded-xl bg-background border border-panelBorder">
+                        <div className="flex items-center gap-3">
+                          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span className="text-sm font-medium text-textMain">{item.label}</span>
+                        </div>
+                        <span className="text-sm font-bold text-textMain">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
+                      <ShareIcon className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-lg font-bold text-textMain">Export &amp; Share</h2>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 mb-6">
+                    {[
+                      { icon: FileIcon, label: "PDF" as ExportFormat },
+                      { icon: TableIcon, label: "CSV" as ExportFormat },
+                      { icon: CodeBracketsIcon, label: "JSON" as ExportFormat },
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.label}
+                          className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-colors ${
+                            selectedFormat === item.label
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-panelBorder bg-background text-textMuted hover:text-textMain"
+                          }`}
+                          type="button"
+                          onClick={() => handleExport(item.label)}
+                        >
+                          <Icon className="h-4 w-4" /> {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-orange-600 transition-colors"
+                      type="button"
+                      onClick={handleShare}
+                    >
+                      <ShareIcon className="h-4 w-4" /> Share Results
+                    </button>
+                    <button
+                      className="flex items-center justify-center gap-2 rounded-xl bg-panel border border-panelBorder px-4 py-2.5 text-sm font-bold text-textMain hover:bg-panelBorder/50 transition-colors"
+                      type="button"
+                      onClick={handleCopy}
+                    >
+                      <CopyIcon className="h-4 w-4" /> Copy Data
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-panelBorder bg-background p-3 flex gap-3">
+                    <InfoIcon className="h-5 w-5 shrink-0 text-textMuted mt-0.5" />
+                    <p className="text-xs text-textMuted leading-relaxed">
+                      {statusMessage || "Exported data includes complete nutritional breakdown and detection results."}
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };

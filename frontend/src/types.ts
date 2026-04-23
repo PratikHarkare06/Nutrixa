@@ -28,6 +28,17 @@ export type UserProfile = {
   weight: number;
   dietaryRestrictions: string[];
   foodAllergies: string[];
+  healthGoals?: string[];
+  primaryGoal?: string;
+  nutritionalTargets?: {
+    calories: number;
+    water: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+    sodium: number;
+  };
   updatedAt: string;
 };
 

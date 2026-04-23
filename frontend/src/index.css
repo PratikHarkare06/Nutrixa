@@ -2,41 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color: #f4f6fb;
-  background: #0a0f16;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  :root {
+    font-family: 'Inter', sans-serif;
+  }
+  
+  body {
+    @apply bg-background text-textMain antialiased;
+  }
 }
 
-* {
-  box-sizing: border-box;
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-html,
-body,
-#root {
-  min-height: 100%;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  background: #0a0f16;
+::-webkit-scrollbar-thumb {
+  @apply bg-panelBorder rounded-full;
 }
 
-button,
-input,
-select {
-  font: inherit;
-}
-
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid #7e84eb;
-  outline-offset: 3px;
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
 }

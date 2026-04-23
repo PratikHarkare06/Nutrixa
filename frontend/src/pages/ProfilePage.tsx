@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { CheckIcon, ChevronDownIcon, ForkKnifeIcon, UserIcon } from "../components/icons";
+import {
+  BreadcrumbChevronIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  FireIcon,
+  ForkKnifeIcon,
+  HomeIcon,
+  TargetIcon,
+  UserIcon,
+} from "../components/icons";
 import {
   fetchProfileRequest,
   getProfileErrorMessage,
@@ -15,13 +24,6 @@ type ProfilePageProps = {
 
 type ProfileFormValues = Omit<UserProfile, "id" | "updatedAt">;
 
-type PreferenceCardProps = {
-  description: string;
-  isSelected: boolean;
-  onClick: () => void;
-  title: string;
-};
-
 const genderOptions = ["Female", "Male", "Non-Binary", "Prefer Not to Say"];
 const activityOptions = [
   "Sedentary",
@@ -29,17 +31,40 @@ const activityOptions = [
   "Moderately Active",
   "Very Active",
 ];
+
 const dietaryOptions = [
-  { description: "No meat, poultry, or fish", label: "Vegetarian" },
-  { description: "No wheat, barley, or rye", label: "Gluten-Free" },
-  { description: "No tree nuts or peanuts", label: "Nut-Free" },
-  { description: "No animal products", label: "Vegan" },
+  { label: "Vegetarian", description: "No meat, poultry, or fish" },
+  { label: "Vegan", description: "No animal products" },
+  { label: "Gluten-Free", description: "No wheat, barley, or rye" },
+  { label: "Dairy-Free", description: "No milk or dairy products" },
+  { label: "Nut-Free", description: "No tree nuts or peanuts" },
+  { label: "Ketogenic", description: "High fat, very low carb" },
+  { label: "Paleo", description: "Whole foods, no processed items" },
+  { label: "Low Sodium", description: "Reduced salt intake" },
 ];
-const allergyOptions = ["Shellfish", "Eggs", "Soy", "Fish", "Sesame"];
+
+const allergyOptions = ["Shellfish", "Eggs", "Soy", "Fish", "Sesame", "Sulfites"];
+
+const healthConditionsOptions = [
+  { label: "Diabetes", description: "Type 1 or Type 2 diabetes" },
+  { label: "High Blood Pressure", description: "Hypertension management" },
+  { label: "High Cholesterol", description: "Cholesterol management" },
+  { label: "Heart Disease", description: "Cardiovascular conditions" },
+  { label: "Kidney Disease", description: "Renal health concerns" },
+  { label: "Thyroid Disorders", description: "Hypo/hyperthyroidism" },
+];
+
+const primaryGoalOptions = [
+  "Weight Loss",
+  "Weight Maintenance",
+  "Muscle Gain",
+  "Improve General Health",
+  "Manage Health Condition",
+];
 
 const defaultValues: ProfileFormValues = {
   activityLevel: "Moderately Active",
-  age: null,
+  age: 28,
   dietaryRestrictions: ["Vegetarian", "Gluten-Free"],
   email: "sarah.johnson@email.com",
   foodAllergies: ["Shellfish"],
@@ -47,83 +72,38 @@ const defaultValues: ProfileFormValues = {
   gender: "Female",
   height: 165,
   weight: 62,
+  healthGoals: [],
+  primaryGoal: "Weight Maintenance",
+  nutritionalTargets: {
+    calories: 1800,
+    water: 2.5,
+    protein: 25,
+    carbs: 45,
+    fat: 30,
+    fiber: 25,
+    sodium: 2000,
+  },
 };
-
-const PersonalInfoField = ({
-  children,
-  label,
-}: {
-  children: ReactNode;
-  label: string;
-}) => (
-  <label className="block">
-    <div className="text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb]">
-      {label} <span className="text-[#ff6f76]">*</span>
-    </div>
-    <div className="mt-[18px]">{children}</div>
-  </label>
-);
-
-const PreferenceCard = ({
-  description,
-  isSelected,
-  onClick,
-  title,
-}: PreferenceCardProps) => (
-  <button
-    className="flex min-h-[402px] w-full items-start gap-[34px] rounded-[30px] border border-[#22314f] bg-[#0a0f16] px-[55px] py-[51px] text-left"
-    type="button"
-    onClick={onClick}
-  >
-    <div
-      className={`mt-[5px] flex h-[36px] w-[36px] items-center justify-center rounded-[5px] border ${
-        isSelected
-          ? "border-[#ff7a12] bg-[#ff7a12] text-[#1a202c]"
-          : "border-[#d0cad8] bg-transparent text-transparent"
-      }`}
-    >
-      <CheckIcon className="h-[24px] w-[24px]" />
-    </div>
-    <div>
-      <div className="text-[31px] font-[700] leading-[1.05] tracking-[-0.03em] text-[#f4f6fb]">
-        {title}
-      </div>
-      <div className="mt-[18px] text-[24px] font-[600] leading-[1.35] tracking-[-0.03em] text-[#97a6c1]">
-        {description}
-      </div>
-    </div>
-  </button>
-);
 
 const mapProfileToFormValues = (profile: UserProfile): ProfileFormValues => ({
-  activityLevel: profile.activityLevel,
+  activityLevel: profile.activityLevel || "Moderately Active",
   age: profile.age,
-  dietaryRestrictions: profile.dietaryRestrictions,
-  email: profile.email,
-  foodAllergies: profile.foodAllergies,
-  fullName: profile.fullName,
-  gender: profile.gender,
-  height: profile.height,
-  weight: profile.weight,
+  dietaryRestrictions: profile.dietaryRestrictions || [],
+  email: profile.email || "",
+  foodAllergies: profile.foodAllergies || [],
+  fullName: profile.fullName || "",
+  gender: profile.gender || "Female",
+  height: profile.height || 165,
+  weight: profile.weight || 62,
+  healthGoals: profile.healthGoals || [],
+  primaryGoal: profile.primaryGoal || "Weight Maintenance",
+  nutritionalTargets: profile.nutritionalTargets || defaultValues.nutritionalTargets,
 });
-
-const isPositiveValue = (value: unknown) => {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) && numericValue > 0;
-};
-
-const getInitials = (fullName: string) =>
-  fullName
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "SJ";
 
 export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const {
     control,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
     getValues,
     handleSubmit,
     register,
@@ -163,44 +143,21 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
     return () => controller.abort();
   }, [reset]);
 
-  const fullName = watch("fullName");
   const dietaryRestrictions = watch("dietaryRestrictions");
   const foodAllergies = watch("foodAllergies");
-  const initials = useMemo(() => getInitials(fullName), [fullName]);
+  const healthGoals = watch("healthGoals") || [];
+  
+  const protein = watch("nutritionalTargets.protein") || 0;
+  const carbs = watch("nutritionalTargets.carbs") || 0;
+  const fat = watch("nutritionalTargets.fat") || 0;
+  const totalMacroPercent = protein + carbs + fat;
 
   const onSubmit = async (values: ProfileFormValues) => {
     setErrorMessage("");
     setSaveMessage("");
 
-    const missingRequiredField =
-      !values.fullName.trim() ||
-      !values.email.trim() ||
-      values.age === null ||
-      values.age === undefined ||
-      !values.gender ||
-      !values.activityLevel ||
-      !values.height ||
-      !values.weight;
-
-    if (missingRequiredField) {
-      setError("root", {
-        message: "Please fill all required fields.",
-        type: "manual",
-      });
-      return;
-    }
-
-    const invalidValue =
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim()) ||
-      !isPositiveValue(values.age) ||
-      !isPositiveValue(values.height) ||
-      !isPositiveValue(values.weight);
-
-    if (invalidValue) {
-      setError("root", {
-        message: "Invalid value entered.",
-        type: "manual",
-      });
+    if (!values.fullName.trim() || !values.email.trim() || !values.age || !values.height || !values.weight) {
+      setError("root", { message: "Please fill all required fields.", type: "manual" });
       return;
     }
 
@@ -212,261 +169,372 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
       });
 
       reset(mapProfileToFormValues(response.data));
-      setSaveMessage("Profile saved.");
+      setSaveMessage("Profile saved successfully.");
     } catch (error) {
       setErrorMessage(getSaveProfileErrorMessage(error));
     }
   };
 
-  const toggleDietaryRestriction = (value: string) => {
-    const current = getValues("dietaryRestrictions");
+  const toggleArrayField = (field: "dietaryRestrictions" | "foodAllergies" | "healthGoals", value: string) => {
+    const current = getValues(field) || [];
     const nextValues = current.includes(value)
       ? current.filter((item) => item !== value)
       : [...current, value];
-
-    setValue("dietaryRestrictions", nextValues, { shouldDirty: true });
+    setValue(field, nextValues, { shouldDirty: true });
   };
 
-  const toggleAllergy = (value: string) => {
-    const current = getValues("foodAllergies");
-    const nextValues = current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value];
-
-    setValue("foodAllergies", nextValues, { shouldDirty: true });
-  };
-
-  const rootErrorMessage = errors.root?.message;
+  const CheckboxLabel = ({ label, description, isChecked, onClick }: any) => (
+    <div className="flex items-start gap-3 cursor-pointer" onClick={onClick}>
+      <div className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded border transition-colors ${
+        isChecked ? "border-primary bg-primary text-white" : "border-gray-500 bg-transparent text-transparent"
+      }`}>
+        <CheckIcon className="h-3 w-3" />
+      </div>
+      <div>
+        <div className="text-sm font-medium text-textMain leading-none">{label}</div>
+        {description && <div className="mt-1 text-xs text-textMuted">{description}</div>}
+      </div>
+    </div>
+  );
 
   return (
-    <main className="mx-auto max-w-[880px] px-[48px] pb-[80px] pt-[58px]">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-[67px] font-[700] leading-none tracking-[-0.06em] text-[#ff7a12]">
-            NutriVision
+    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto px-8 py-8">
+        <div className="max-w-4xl mx-auto pb-24">
+          <div className="flex items-center gap-2 text-xs font-medium text-textMuted mb-2">
+            <HomeIcon className="h-4 w-4" />
+            <button className="hover:text-textMain transition-colors" type="button" onClick={() => onNavigate("/")}>
+              Dashboard
+            </button>
+            <BreadcrumbChevronIcon className="h-3 w-3" />
+            <span className="text-textMain">Profile Settings</span>
           </div>
-          <div className="mt-[21px] text-[44px] font-[600] leading-none tracking-[-0.05em] text-[#b5c0d4]">
-            Profile Settings
-          </div>
+
+          <h1 className="text-2xl font-bold tracking-tight text-textMain mb-8">
+            Profile &amp; Preferences
+          </h1>
+
+          {(errorMessage || errors.root?.message || saveMessage) && !isLoading && (
+            <div className={`mb-6 rounded-lg border p-4 text-sm font-medium ${
+              saveMessage && !errorMessage && !errors.root?.message
+                ? "border-success/50 bg-success/10 text-success"
+                : "border-danger/50 bg-danger/10 text-danger"
+            }`}>
+              {errorMessage || errors.root?.message || saveMessage}
+            </div>
+          )}
+
+          <form id="profile-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            
+            {/* Personal Information */}
+            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+              <div className="flex items-start gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
+                  <UserIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-textMain">Personal Information</h2>
+                  <p className="text-xs text-textMuted mt-1">Basic details for personalized nutrition analysis</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Full Name <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    {...register("fullName")}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Email Address <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    {...register("email")}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Age <span className="text-danger">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
+                      {...register("age", { valueAsNumber: true })}
+                    >
+                      <option value="" disabled>Select age</option>
+                      {Array.from({ length: 83 }, (_, i) => i + 18).map(age => (
+                        <option key={age} value={age}>{age} years</option>
+                      ))}
+                    </select>
+                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Gender <span className="text-danger">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
+                      {...register("gender")}
+                    >
+                      {genderOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Activity Level <span className="text-danger">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
+                      {...register("activityLevel")}
+                    >
+                      {activityOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
+                  </div>
+                </div>
+                <div className="hidden"></div>
+
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Height (cm) <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    {...register("height", { valueAsNumber: true })}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Weight (kg) <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+                    {...register("weight", { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Dietary Preferences */}
+            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+              <div className="flex items-start gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-900/30 text-purple-400">
+                  <ForkKnifeIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-textMain">Dietary Preferences</h2>
+                  <p className="text-xs text-textMuted mt-1">Customize your nutrition analysis based on your dietary needs</p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-textMain mb-4">Dietary Restrictions</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {dietaryOptions.map(opt => (
+                    <CheckboxLabel 
+                      key={opt.label}
+                      label={opt.label}
+                      description={opt.description}
+                      isChecked={dietaryRestrictions.includes(opt.label)}
+                      onClick={() => toggleArrayField("dietaryRestrictions", opt.label)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-textMain mb-4">Food Allergies</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  {allergyOptions.map(opt => (
+                    <CheckboxLabel 
+                      key={opt}
+                      label={opt}
+                      isChecked={foodAllergies.includes(opt)}
+                      onClick={() => toggleArrayField("foodAllergies", opt)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Health Goals */}
+            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+              <div className="flex items-start gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-900/30 text-success">
+                  <TargetIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-textMain">Health Goals</h2>
+                  <p className="text-xs text-textMuted mt-1">Define your health objectives for personalized recommendations</p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-xs font-medium text-textMain mb-2">
+                  Primary Health Goal <span className="text-danger">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    className="w-full appearance-none rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
+                    {...register("primaryGoal")}
+                  >
+                    {primaryGoalOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                  <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-textMuted pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-textMain mb-4">Health Conditions</h3>
+                <p className="text-xs text-textMuted mb-4 -mt-2">Select any health conditions that may affect your dietary needs</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {healthConditionsOptions.map(opt => (
+                    <CheckboxLabel 
+                      key={opt.label}
+                      label={opt.label}
+                      description={opt.description}
+                      isChecked={healthGoals.includes(opt.label)}
+                      onClick={() => toggleArrayField("healthGoals", opt.label)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Nutritional Targets */}
+            <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+              <div className="flex items-start gap-3 mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
+                  <FireIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-textMain">Nutritional Targets</h2>
+                  <p className="text-xs text-textMuted mt-1">Set your daily calorie and macronutrient goals</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Daily Calorie Target <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                    {...register("nutritionalTargets.calories", { valueAsNumber: true })}
+                  />
+                  <div className="text-[10px] text-textMuted">Recommended daily calorie intake</div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Daily Water Target (L) <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    type="number" step="0.1"
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                    {...register("nutritionalTargets.water", { valueAsNumber: true })}
+                  />
+                  <div className="text-[10px] text-textMuted">Daily water intake goal</div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-textMain mb-4">Macronutrient Distribution</h3>
+                <div className="grid grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-xs font-medium text-textMain mb-2">Protein (%)</label>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                      {...register("nutritionalTargets.protein", { valueAsNumber: true })}
+                    />
+                    <div className="text-[10px] text-textMuted">≈ {Math.round((watch("nutritionalTargets.calories") * (protein/100)) / 4)}g daily</div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-textMain mb-2">Carbohydrates (%)</label>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                      {...register("nutritionalTargets.carbs", { valueAsNumber: true })}
+                    />
+                    <div className="text-[10px] text-textMuted">≈ {Math.round((watch("nutritionalTargets.calories") * (carbs/100)) / 4)}g daily</div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-textMain mb-2">Fat (%)</label>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                      {...register("nutritionalTargets.fat", { valueAsNumber: true })}
+                    />
+                    <div className="text-[10px] text-textMuted">≈ {Math.round((watch("nutritionalTargets.calories") * (fat/100)) / 9)}g daily</div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center mt-4">
+                  <span className="text-xs text-textMuted">Total Percentage:</span>
+                  <span className={`text-sm font-bold ${totalMacroPercent === 100 ? 'text-success' : 'text-danger'}`}>
+                    {totalMacroPercent}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 pt-6 border-t border-panelBorder">
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">Daily Fiber Target (g)</label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                    {...register("nutritionalTargets.fiber", { valueAsNumber: true })}
+                  />
+                  <div className="text-[10px] text-textMuted">Recommended daily fiber intake</div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-textMain mb-2">Daily Sodium Limit (mg)</label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary mb-1"
+                    {...register("nutritionalTargets.sodium", { valueAsNumber: true })}
+                  />
+                  <div className="text-[10px] text-textMuted">Maximum daily sodium intake</div>
+                </div>
+              </div>
+            </section>
+          </form>
         </div>
-        <button
-          className="flex h-[91px] w-[91px] items-center justify-center rounded-full bg-[#ff7a12] text-[31px] font-[500] tracking-[-0.03em] text-white"
-          type="button"
-          onClick={() => onNavigate("/results")}
-        >
-          {initials}
-        </button>
       </div>
 
-      {(errorMessage || rootErrorMessage || saveMessage) && !isLoading ? (
-        <section
-          className={`mt-[28px] rounded-[24px] border px-[28px] py-[20px] text-[22px] font-[600] tracking-[-0.02em] ${
-            saveMessage && !errorMessage && !rootErrorMessage
-              ? "border-[#295842] bg-[#10261b] text-[#8ae1b6]"
-              : "border-[#5b2430] bg-[#311821] text-[#ffb4c2]"
-          }`}
-        >
-          {errorMessage || rootErrorMessage || saveMessage}
-        </section>
-      ) : null}
-
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <section className="mt-[49px] rounded-[31px] border border-[#22314f] bg-[#1a202c] px-[49px] pb-[61px] pt-[48px]">
-          <div className="flex items-start gap-[33px]">
-            <div className="flex h-[80px] w-[80px] items-center justify-center rounded-[22px] bg-[#342920] text-[#ff7a12]">
-              <UserIcon className="h-[38px] w-[38px]" />
-            </div>
-            <div>
-              <h1 className="text-[42px] font-[700] leading-none tracking-[-0.05em] text-[#f4f6fb]">
-                Personal Information
-              </h1>
-              <p className="mt-[14px] text-[24px] font-[600] leading-[1.25] tracking-[-0.03em] text-[#97a6c1]">
-                Basic details for personalized nutrition analysis
-              </p>
-            </div>
+      {/* Sticky Bottom Bar */}
+      <div className="absolute bottom-0 left-0 right-0 border-t border-panelBorder bg-background px-8 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="text-sm text-textMuted">
+            {isDirty ? "Unsaved changes" : "No changes to save"}
           </div>
-
-          <div className="mt-[59px]">
-            <PersonalInfoField label="Full Name">
-              <input
-                className="h-[85px] w-full rounded-[18px] border border-[#9a9aa0] bg-[#1a202c] px-[33px] text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb] placeholder:text-[#5e6d86] focus:outline-none"
-                {...register("fullName")}
-              />
-            </PersonalInfoField>
-
-            <div className="mt-[42px]">
-              <PersonalInfoField label="Email Address">
-                <input
-                  className="h-[85px] w-full rounded-[18px] border border-[#9a9aa0] bg-[#1a202c] px-[33px] text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb] placeholder:text-[#5e6d86] focus:outline-none"
-                  {...register("email")}
-                />
-              </PersonalInfoField>
-            </div>
-
-            <div className="mt-[42px] grid grid-cols-2 gap-[33px]">
-              <PersonalInfoField label="Age">
-                <div className="relative">
-                  <Controller
-                    control={control}
-                    name="age"
-                    render={({ field }) => (
-                      <select
-                        className="h-[93px] w-full appearance-none rounded-[22px] border border-[#1f3557] bg-[#0a0f16] px-[33px] text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb] focus:outline-none"
-                        value={field.value ?? ""}
-                        onChange={(event) =>
-                          field.onChange(event.target.value ? Number(event.target.value) : null)
-                        }
-                      >
-                        <option value="" />
-                        {Array.from({ length: 83 }, (_, index) => index + 18).map((ageValue) => (
-                          <option key={ageValue} value={ageValue}>
-                            {ageValue}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  />
-                  <ChevronDownIcon className="pointer-events-none absolute right-[26px] top-[35px] h-[28px] w-[28px] text-[#9aacbf]" />
-                </div>
-              </PersonalInfoField>
-
-              <PersonalInfoField label="Gender">
-                <div className="relative">
-                  <Controller
-                    control={control}
-                    name="gender"
-                    render={({ field }) => (
-                      <select
-                        className="h-[93px] w-full appearance-none rounded-[22px] border border-[#1f3557] bg-[#0a0f16] px-[33px] text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb] focus:outline-none"
-                        {...field}
-                      >
-                        {genderOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  />
-                  <ChevronDownIcon className="pointer-events-none absolute right-[26px] top-[35px] h-[28px] w-[28px] text-[#9aacbf]" />
-                </div>
-              </PersonalInfoField>
-            </div>
-
-            <div className="mt-[42px]">
-              <PersonalInfoField label="Activity Level">
-                <div className="relative">
-                  <Controller
-                    control={control}
-                    name="activityLevel"
-                    render={({ field }) => (
-                      <select
-                        className="h-[93px] w-full appearance-none rounded-[22px] border border-[#1f3557] bg-[#0a0f16] px-[33px] text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb] focus:outline-none"
-                        {...field}
-                      >
-                        {activityOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  />
-                  <ChevronDownIcon className="pointer-events-none absolute right-[26px] top-[35px] h-[28px] w-[28px] text-[#9aacbf]" />
-                </div>
-              </PersonalInfoField>
-            </div>
-
-            <div className="mt-[42px] grid grid-cols-2 gap-[33px]">
-              <PersonalInfoField label="Height (cm)">
-                <input
-                  className="h-[85px] w-full rounded-[18px] border border-[#9a9aa0] bg-[#1a202c] px-[33px] text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb] placeholder:text-[#5e6d86] focus:outline-none"
-                  inputMode="numeric"
-                  {...register("height", {
-                    setValueAs: (value) => (value === "" ? "" : Number(value)),
-                  })}
-                />
-              </PersonalInfoField>
-
-              <PersonalInfoField label="Weight (kg)">
-                <input
-                  className="h-[85px] w-full rounded-[18px] border border-[#9a9aa0] bg-[#1a202c] px-[33px] text-[31px] font-[400] tracking-[-0.03em] text-[#f4f6fb] placeholder:text-[#5e6d86] focus:outline-none"
-                  inputMode="numeric"
-                  {...register("weight", {
-                    setValueAs: (value) => (value === "" ? "" : Number(value)),
-                  })}
-                />
-              </PersonalInfoField>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-[50px] rounded-[31px] border border-[#22314f] bg-[#1a202c] px-[49px] pb-[54px] pt-[48px]">
-          <div className="flex items-start gap-[33px]">
-            <div className="flex h-[80px] w-[80px] items-center justify-center rounded-[22px] bg-[#342920] text-[#ff7a12]">
-              <ForkKnifeIcon className="h-[40px] w-[40px]" />
-            </div>
-            <div>
-              <h2 className="text-[42px] font-[700] leading-none tracking-[-0.05em] text-[#f4f6fb]">
-                Dietary Preferences
-              </h2>
-              <p className="mt-[14px] text-[24px] font-[600] leading-[1.25] tracking-[-0.03em] text-[#97a6c1]">
-                Customize analysis based on your dietary needs
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-[58px] text-[31px] font-[700] tracking-[-0.03em] text-[#f4f6fb]">
-            Dietary Restrictions
-          </div>
-
-          <div className="mt-[37px] space-y-[36px]">
-            {dietaryOptions.map((option) => (
-              <PreferenceCard
-                key={option.label}
-                description={option.description}
-                isSelected={dietaryRestrictions.includes(option.label)}
-                title={option.label}
-                onClick={() => toggleDietaryRestriction(option.label)}
-              />
-            ))}
-          </div>
-
-          <div className="mt-[49px] text-[31px] font-[700] tracking-[-0.03em] text-[#f4f6fb]">
-            Food Allergies
-          </div>
-
-          <div className="mt-[29px] flex flex-wrap items-center gap-[18px]">
-            {allergyOptions.map((option) => {
-              const isSelected = foodAllergies.includes(option);
-
-              return (
-                <button
-                  key={option}
-                  className={`flex h-[65px] items-center justify-center gap-[14px] rounded-[17px] border px-[24px] text-[31px] font-[400] tracking-[-0.03em] ${
-                    isSelected
-                      ? "border-transparent bg-transparent text-[#f4f6fb]"
-                      : "border-[#5b576f] bg-transparent text-[#f4f6fb]"
-                  }`}
-                  type="button"
-                  onClick={() => toggleAllergy(option)}
-                >
-                  {isSelected ? <CheckIcon className="h-[24px] w-[24px]" /> : null}
-                  {option}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <button
-          className="mt-[42px] flex h-[92px] w-full items-center justify-center rounded-[28px] bg-[#ff7a12] text-[31px] font-[700] tracking-[-0.03em] text-white disabled:opacity-70"
-          disabled={isLoading || isSubmitting}
-          type="submit"
-        >
-          {isLoading ? "Loading Profile..." : isSubmitting ? "Saving..." : "Save Profile"}
-        </button>
-      </form>
-    </main>
+          <button
+            form="profile-form"
+            type="submit"
+            disabled={isLoading || isSubmitting || !isDirty}
+            className="px-6 py-2 rounded-lg bg-panel border border-panelBorder text-sm font-medium text-textMain disabled:opacity-50 hover:bg-panelBorder transition-colors flex items-center gap-2"
+          >
+            {isLoading ? "Loading..." : isSubmitting ? "Saving..." : "Save Profile"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
