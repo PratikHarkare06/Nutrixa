@@ -287,17 +287,67 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                   <h3 className="text-sm font-semibold text-textMuted uppercase tracking-wider mb-4">Detected Items</h3>
 
                   <div className="space-y-4 mb-6">
-                    {analysis.foods.map((food) => (
-                      <div key={food.name} className="flex items-center justify-between p-4 rounded-xl bg-background border border-panelBorder">
-                        <div>
-                          <div className="text-base font-bold text-textMain">{food.name}</div>
-                          <div className="text-xs text-textMuted mt-1">{foodCategories[food.name] ?? "Detected Item"}</div>
+                    {analysis.foods.map((food) => {
+                      const macros = analysis.ingredientsMacros?.[food.name.toLowerCase()];
+
+                      return (
+                        <div key={food.name} className="flex flex-col p-4 rounded-xl bg-background border border-panelBorder">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <div className="text-base font-bold text-textMain capitalize">{food.name}</div>
+                              <div className="text-xs text-textMuted mt-0.5">
+                                {foodCategories[food.name] ?? "Detected Ingredient"}
+                                {macros?.portionWeight ? (
+                                  <span className="ml-2 text-primary font-medium">~{macros.portionWeight}g portion</span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded-md">
+                                {(food.confidence * 100).toFixed(1)}% Match
+                              </div>
+                              {macros?.caloriesPerGram !== undefined && (
+                                <div className="text-[10px] font-semibold text-primary/80 bg-primary/10 px-2 py-0.5 rounded-md">
+                                  {macros.caloriesPerGram.toFixed(2)} kcal/g
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {macros && (
+                            <div className="grid grid-cols-4 gap-2 mt-2 pt-3 border-t border-panelBorder">
+                              <div className="text-center">
+                                <div className="text-[10px] text-textMuted uppercase tracking-wider">Calories</div>
+                                <div className="text-sm font-bold text-textMain">
+                                  {macros.portionCalories !== undefined ? macros.portionCalories : formatNumber(macros.calories)}
+                                </div>
+                                <div className="text-[9px] text-textMuted">kcal</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[10px] text-textMuted uppercase tracking-wider">Protein</div>
+                                <div className="text-sm font-bold text-textMain">
+                                  {macros.portionProtein !== undefined ? macros.portionProtein : formatNumber(macros.protein)}
+                                </div>
+                                <div className="text-[9px] text-textMuted">g</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[10px] text-textMuted uppercase tracking-wider">Carbs</div>
+                                <div className="text-sm font-bold text-textMain">
+                                  {macros.portionCarbs !== undefined ? macros.portionCarbs : formatNumber(macros.carbs)}
+                                </div>
+                                <div className="text-[9px] text-textMuted">g</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[10px] text-textMuted uppercase tracking-wider">Fat</div>
+                                <div className="text-sm font-bold text-textMain">
+                                  {macros.portionFat !== undefined ? macros.portionFat : formatNumber(macros.fat)}
+                                </div>
+                                <div className="text-[9px] text-textMuted">g</div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-sm font-bold text-success bg-success/10 px-3 py-1.5 rounded-lg">
-                          {(food.confidence * 100).toFixed(1)}% Match
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

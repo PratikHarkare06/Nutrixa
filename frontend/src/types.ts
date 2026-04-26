@@ -12,6 +12,28 @@ export type UploadAnalysis = {
     fat: number;
     fiber: number;
   };
+  ingredientsMacros?: Record<string, {
+    // Per 100 g reference values (from API)
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber?: number;
+    source?: string;
+    // Caloric density (kcal per gram)
+    caloriesPerGram?: number;
+    proteinPerGram?: number;
+    carbsPerGram?: number;
+    fatPerGram?: number;
+    fiberPerGram?: number;
+    // Actual portion values (based on estimated weight)
+    portionWeight?: number;
+    portionCalories?: number;
+    portionProtein?: number;
+    portionCarbs?: number;
+    portionFat?: number;
+    portionFiber?: number;
+  }>;
   volume: number;
   weight: number;
   createdAt: string;

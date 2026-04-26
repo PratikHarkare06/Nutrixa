@@ -1,5 +1,31 @@
 node_modules
 dist
 .DS_Store
+
+# Uploads (keep placeholder)
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Environment secrets — never commit
+backend/.env
+frontend/.env
+
+# Python virtual environment
+backend/venv/
+
+# ML model weights (large binaries — store with Git LFS or separately)
+backend/best.onnx
+backend/best.pt
+
+# Dataset
+opennutrition-dataset-2025.1/
+opennutrition-dataset-2025.1.zip
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# macOS
+*.DS_Store

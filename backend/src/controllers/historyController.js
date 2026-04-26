@@ -33,7 +33,8 @@ const getHistory = async (req, res, next) => {
         total,
       },
     });
-  } catch (_error) {
+  } catch (error) {
+    console.error("History fetch error:", error);
     next(createAppError(500, "FETCH_FAILED", "Failed to fetch history."));
   }
 };
