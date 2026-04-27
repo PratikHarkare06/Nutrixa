@@ -43,6 +43,9 @@ const foodEntrySchema = new mongoose.Schema(
       type: Map,
       of: mongoose.Schema.Types.Mixed,
     },
+    mealType: { type: String, default: "unknown" },
+    mealCategory: { type: String, default: "meal" },
+    volumeSource: { type: String, default: "density" },
   },
   {
     collection: "food_entries",
@@ -71,9 +74,12 @@ const mapFoodEntryToAnalysis = (entry) => ({
   },
   volume: entry.volume ?? 0,
   weight: entry.weight ?? 0,
-  ingredientsMacros: entry.ingredients_macros instanceof Map 
-    ? Object.fromEntries(entry.ingredients_macros) 
+  ingredientsMacros: entry.ingredients_macros instanceof Map
+    ? Object.fromEntries(entry.ingredients_macros)
     : (entry.ingredients_macros || {}),
+  mealType: entry.mealType || "unknown",
+  mealCategory: entry.mealCategory || "meal",
+  volumeSource: entry.volumeSource || "density",
 });
 
 module.exports = { FoodEntry, mapFoodEntryToAnalysis };

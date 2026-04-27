@@ -15,3 +15,4 @@ const startServer = async () => {
 };
 
 startServer();
+// Added nodemon.json ignore rule

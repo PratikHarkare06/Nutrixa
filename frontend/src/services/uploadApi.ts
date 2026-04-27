@@ -8,10 +8,14 @@ const api = axios.create({
 
 export const uploadImageRequest = async (
   file: File,
+  mealType?: string,
+  uploadId?: string,
   signal?: AbortSignal,
 ): Promise<UploadSuccessResponse> => {
   const formData = new FormData();
   formData.append("image", file);
+  if (mealType) formData.append("mealType", mealType);
+  if (uploadId) formData.append("uploadId", uploadId);
 
   let lastError: unknown;
 

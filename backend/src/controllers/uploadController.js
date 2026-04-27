@@ -11,7 +11,9 @@ const uploadImage = async (req, res, next) => {
 
   try {
     const imageUrl = `${env.appUrl}/uploads/${req.file.filename}`;
-    const analysis = await analyzeFoodWithFatSecret(req.file.path, req.file.mimetype, imageUrl);
+    const userMealType = (req.body.mealType || "").trim().toLowerCase();
+    const uploadId = req.body.uploadId;
+    const analysis = await analyzeFoodWithFatSecret(req.file.path, req.file.mimetype, imageUrl, userMealType, uploadId);
     const savedEntry = await FoodEntry.create({
       calories: analysis.macros.calories,
       carbs: analysis.macros.carbs,
@@ -23,6 +25,9 @@ const uploadImage = async (req, res, next) => {
       volume: analysis.volume,
       weight: analysis.weight,
       ingredients_macros: analysis.ingredients_macros,
+      meal_type: analysis.mealType,
+      meal_category: analysis.mealCategory,
+      volume_source: analysis.volumeSource,
     });
 
     res.status(200).json({
@@ -30,8 +35,10 @@ const uploadImage = async (req, res, next) => {
       data: mapFoodEntryToAnalysis(savedEntry),
     });
   } catch (error) {
-    if (error.message.includes("FATSECRET_CONFIG_ERROR")) {
+    if (error.message?.includes("FATSECRET_CONFIG_ERROR")) {
       next(createAppError(500, "CONFIG_ERROR", "FatSecret API keys are missing. Please configure them."));
+    } else if (error.message?.includes("ANALYSIS_UNAVAILABLE")) {
+      next(createAppError(503, "RATE_LIMITED", "AI analysis is temporarily unavailable. Please wait a moment and try again."));
     } else {
       next(createAppError(500, "UPLOAD_FAILED", "Upload failed or AI analysis error. Please try again."));
     }

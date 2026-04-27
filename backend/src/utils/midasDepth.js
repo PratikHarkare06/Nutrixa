@@ -6,16 +6,11 @@
  * a parsed result object. Falls back gracefully if Python/MiDaS is unavailable.
  */
 
-const { execFile } = require("child_process");
+const fetch = require("node-fetch");
 const path = require("path");
-const fs = require("fs");
-
-const PYTHON_BIN = path.join(__dirname, "..", "..", "venv", "bin", "python3");
-const SCRIPT_PATH = path.join(__dirname, "..", "..", "midas_depth.py");
-const TIMEOUT_MS = 60_000; // 60 s — first run downloads the model (~25 MB)
 
 /**
- * Run MiDaS depth estimation on a food image.
+ * Run MiDaS depth estimation on a food image by calling the ML Server.
  *
  * @param {string} imagePath  Absolute path to the uploaded image.
  * @param {number} bboxRatio  YOLO bbox area ratio (0–1), used to locate food region.
@@ -29,67 +24,33 @@ const TIMEOUT_MS = 60_000; // 60 s — first run downloads the model (~25 MB)
  *   error?: string
  * }>}
  */
-const runMiDaS = (imagePath, bboxRatio = 0.5) => {
-  return new Promise((resolve) => {
-    // Guard: Python binary and script must exist
-    if (!fs.existsSync(PYTHON_BIN)) {
-      console.warn("[MiDaS] Python venv not found — skipping depth estimation.");
-      return resolve({ success: false, method: "fallback", error: "Python venv not found" });
+const runMiDaS = async (imagePath, bboxRatio = 0.5) => {
+  try {
+    const res = await fetch("http://localhost:8000/depth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_path: imagePath, bbox_ratio: bboxRatio })
+    });
+
+    if (!res.ok) {
+      console.warn(`[MiDaS] ML Server returned ${res.status} — using fallback volume.`);
+      return { success: false, method: "fallback", error: "ML Server Error" };
     }
-    if (!fs.existsSync(SCRIPT_PATH)) {
-      console.warn("[MiDaS] midas_depth.py not found — skipping depth estimation.");
-      return resolve({ success: false, method: "fallback", error: "midas_depth.py not found" });
+
+    const result = await res.json();
+    if (result.success) {
+      console.log(
+        `[MiDaS] ✓ Volume: ${result.volume_cm3} cm³ | Weight: ${result.weight_g} g` +
+        ` | depth_mean: ${result.depth_mean}`
+      );
+    } else {
+      console.warn("[MiDaS] Depth estimation failed:", result.error);
     }
-
-    let settled = false;
-    const settle = (result) => {
-      if (!settled) {
-        settled = true;
-        resolve(result);
-      }
-    };
-
-    // Kill process if it exceeds the timeout
-    const timer = setTimeout(() => {
-      console.warn("[MiDaS] Depth estimation timed out — using fallback volume.");
-      settle({ success: false, method: "fallback", error: "timeout" });
-    }, TIMEOUT_MS);
-
-    execFile(
-      PYTHON_BIN,
-      [SCRIPT_PATH, imagePath, String(bboxRatio)],
-      { maxBuffer: 1024 * 1024 }, // 1 MB stdout buffer
-      (error, stdout, stderr) => {
-        clearTimeout(timer);
-
-        if (error) {
-          console.error("[MiDaS] Process error:", error.message);
-          if (stderr) console.error("[MiDaS] stderr:", stderr.slice(0, 400));
-          return settle({ success: false, method: "fallback", error: error.message });
-        }
-
-        if (stderr && stderr.includes("Error")) {
-          console.warn("[MiDaS] Python stderr:", stderr.slice(0, 400));
-        }
-
-        try {
-          const result = JSON.parse(stdout.trim());
-          if (result.success) {
-            console.log(
-              `[MiDaS] ✓ Volume: ${result.volume_cm3} cm³ | Weight: ${result.weight_g} g` +
-              ` | depth_mean: ${result.depth_mean}`
-            );
-          } else {
-            console.warn("[MiDaS] Depth estimation failed:", result.error);
-          }
-          settle(result);
-        } catch (parseErr) {
-          console.error("[MiDaS] JSON parse error. stdout:", stdout.slice(0, 200));
-          settle({ success: false, method: "fallback", error: "JSON parse error" });
-        }
-      }
-    );
-  });
+    return result;
+  } catch (error) {
+    console.error("[MiDaS] ML Server connection failed:", error.message);
+    return { success: false, method: "fallback", error: "ML Server unavailable" };
+  }
 };
 
 module.exports = { runMiDaS };

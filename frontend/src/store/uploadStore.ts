@@ -7,12 +7,13 @@ type UploadState = {
   dragActive: boolean;
   errorMessage: string;
   isUploading: boolean;
+  progressMessage: string;
   controller: AbortController | null;
   setAnalysis: (analysis: UploadAnalysis | null) => void;
   setDragActive: (dragActive: boolean) => void;
   clearError: () => void;
   cancelUpload: () => void;
-  uploadImage: (file: File | null) => Promise<boolean>;
+  uploadImage: (file: File | null, mealType?: string) => Promise<boolean>;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -39,19 +40,20 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   dragActive: false,
   errorMessage: "",
   isUploading: false,
+  progressMessage: "",
   controller: null,
   setAnalysis: (analysis) => set({ analysis }),
   setDragActive: (dragActive) => set({ dragActive }),
-  clearError: () => set({ errorMessage: "" }),
+  clearError: () => set({ errorMessage: "", progressMessage: "" }),
   cancelUpload: () => {
     const controller = get().controller;
     if (controller) {
       controller.abort();
     }
 
-    set({ controller: null, isUploading: false });
+    set({ controller: null, isUploading: false, progressMessage: "" });
   },
-  uploadImage: async (file) => {
+  uploadImage: async (file, mealType) => {
     const validationMessage = getClientValidationMessage(file);
 
     if (validationMessage) {
@@ -66,28 +68,45 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
     const uploadFile = file;
     const controller = new AbortController();
+    const uploadId = crypto.randomUUID();
 
     set({
       controller,
       errorMessage: "",
+      progressMessage: "Starting upload...",
       isUploading: true,
     });
 
-    try {
-      const response = await uploadImageRequest(uploadFile, controller.signal);
+    const eventSource = new EventSource(`http://localhost:5001/api/upload/progress/${uploadId}`);
+    eventSource.onmessage = (event) => {
+      try {
+        if (event.data === "connected") return;
+        const data = JSON.parse(event.data);
+        if (data.message) {
+          set({ progressMessage: data.message });
+        }
+      } catch (err) {}
+    };
 
+    try {
+      const response = await uploadImageRequest(uploadFile, mealType, uploadId, controller.signal);
+
+      eventSource.close();
       set({
         analysis: response.data,
         controller: null,
         errorMessage: "",
+        progressMessage: "",
         isUploading: false,
       });
 
       return true;
     } catch (error) {
+      eventSource.close();
       set({
         controller: null,
         errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
         isUploading: false,
       });
 

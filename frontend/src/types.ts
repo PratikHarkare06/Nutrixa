@@ -37,6 +37,9 @@ export type UploadAnalysis = {
   volume: number;
   weight: number;
   createdAt: string;
+  mealType?: string;
+  mealCategory?: string;
+  volumeSource?: "midas" | "density";
 };
 
 export type UserProfile = {

@@ -222,6 +222,29 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
               <p className="mt-2 text-sm text-textMuted max-w-2xl">
                 Comprehensive breakdown of your food&apos;s nutritional content and health insights
               </p>
+              {analysis && (analysis.mealCategory || analysis.mealType) && (
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {analysis.mealCategory && analysis.mealCategory !== "meal" && (
+                    <span className="capitalize text-xs font-bold bg-primary/10 text-primary px-3 py-1 rounded-full">
+                      🍽 {analysis.mealCategory}
+                    </span>
+                  )}
+                  {analysis.mealType && analysis.mealType !== "unknown" && (
+                    <span className="capitalize text-xs font-semibold bg-panel border border-panelBorder text-textMuted px-3 py-1 rounded-full">
+                      🕐 {analysis.mealType}
+                    </span>
+                  )}
+                  {analysis.volumeSource && (
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${
+                      analysis.volumeSource === "midas"
+                        ? "bg-purple-900/20 border-purple-700/40 text-purple-300"
+                        : "bg-panel border-panelBorder text-textMuted"
+                    }`}>
+                      📐 Volume: {analysis.volumeSource === "midas" ? "MiDaS depth" : "density estimate"}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button

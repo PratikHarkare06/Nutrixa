@@ -45,9 +45,9 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
               clearError();
               setDragActive(active);
             }}
-            onFileSelected={async (file) => {
+            onFileSelected={async (file, mealType) => {
               clearError();
-              const success = await uploadImage(file);
+              const success = await uploadImage(file, mealType);
               if (success) {
                 onUploadSuccess();
               }

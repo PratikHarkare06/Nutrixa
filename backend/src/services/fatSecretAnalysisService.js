@@ -4,404 +4,667 @@ const { GoogleGenAI } = require("@google/genai");
 const { runYoloInference } = require("../utils/yoloInference");
 const { getFoodDensity } = require("../utils/foodDensity");
 const { runMiDaS } = require("../utils/midasDepth");
+const { getCachedNutrition, setCachedNutrition } = require("../utils/nutritionCache");
+const { emitProgress } = require("../utils/progressTracker");
 
 // ─── FatSecret OAuth2 Token ───────────────────────────────────────────────────
 
 const getFatSecretToken = async () => {
   const clientId = (process.env.FATSECRET_CLIENT_ID || "").trim();
   const clientSecret = (process.env.FATSECRET_CLIENT_SECRET || "").trim();
+  if (!clientId || !clientSecret) throw new Error("FATSECRET_CONFIG_ERROR: credentials missing.");
 
-  if (!clientId || !clientSecret) {
-    throw new Error("FATSECRET_CONFIG_ERROR: credentials missing.");
-  }
-
-  const tokenResponse = await fetch("https://oauth.fatsecret.com/connect/token", {
+  const res = await fetch("https://oauth.fatsecret.com/connect/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization:
-        "Basic " +
-        Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
+      Authorization: "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
     },
     body: "grant_type=client_credentials&scope=basic",
   });
 
-  if (!tokenResponse.ok) {
-    const errBody = await tokenResponse.text();
-    console.error("FatSecret token error:", errBody);
-    return null; // non-fatal — we'll fall back to USDA
-  }
-
-  const data = await tokenResponse.json();
-  return data.access_token;
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.access_token || null;
 };
 
-// ─── FatSecret Nutritional Lookup ────────────────────────────────────────────
+// ─── FatSecret Lookup ─────────────────────────────────────────────────────────
 
-const getFatSecretNutritionalData = async (accessToken, foodName) => {
+const fetchFatSecret = async (accessToken, foodName) => {
   try {
-    const searchResponse = await fetch(
-      `https://platform.fatsecret.com/rest/server.api?method=foods.search&search_expression=${encodeURIComponent(
-        foodName
-      )}&format=json&max_results=3`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
+    const search = await fetch(
+      `https://platform.fatsecret.com/rest/server.api?method=foods.search&search_expression=${encodeURIComponent(foodName)}&format=json&max_results=3`,
+      { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } }
     );
+    const searchData = await search.json();
+    if (searchData.error) return null;
+    if (!searchData.foods?.food) return null;
 
-    const searchData = await searchResponse.json();
+    const arr = Array.isArray(searchData.foods.food) ? searchData.foods.food : [searchData.foods.food];
+    const preferred = arr.find((f) => f.food_type === "Generic") || arr[0];
 
-    if (searchData.error) {
-      // error code 21 = IP not whitelisted; treat as soft failure
-      console.warn(`FatSecret blocked for "${foodName}":`, searchData.error.message);
-      return null;
-    }
-
-    if (!searchData.foods || !searchData.foods.food) {
-      console.warn("FatSecret: no results for:", foodName);
-      return null;
-    }
-
-    const foodArray = Array.isArray(searchData.foods.food)
-      ? searchData.foods.food
-      : [searchData.foods.food];
-
-    if (foodArray.length === 0) return null;
-
-    // Prefer a "Generic" entry over branded ones for clean macro data
-    const preferred =
-      foodArray.find((f) => f.food_type === "Generic") || foodArray[0];
-    const foodId = preferred.food_id;
-
-    const detailsResponse = await fetch(
-      `https://platform.fatsecret.com/rest/server.api?method=food.get.v2&food_id=${foodId}&format=json`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
+    const details = await fetch(
+      `https://platform.fatsecret.com/rest/server.api?method=food.get.v2&food_id=${preferred.food_id}&format=json`,
+      { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } }
     );
+    const det = await details.json();
+    if (!det.food?.servings) return null;
 
-    const detailsData = await detailsResponse.json();
-    if (!detailsData.food || !detailsData.food.servings) return null;
+    const servArr = Array.isArray(det.food.servings.serving)
+      ? det.food.servings.serving
+      : [det.food.servings.serving];
 
-    const servingsData = detailsData.food.servings.serving;
-    const servingArray = Array.isArray(servingsData) ? servingsData : [servingsData];
+    // Prefer exact 100g serving; otherwise pick the serving closest to 100g
+    // (avoids tiny 1g servings that cause ×100 scale explosions)
+    const servWithMetric = servArr.filter((s) => parseFloat(s.metric_serving_amount || 0) > 0);
+    const serv = servWithMetric.length
+      ? servWithMetric.reduce((best, s) =>
+          Math.abs(parseFloat(s.metric_serving_amount) - 100) <
+          Math.abs(parseFloat(best.metric_serving_amount) - 100)
+            ? s : best
+        )
+      : servArr[0];
 
-    // Prefer a 100 g serving; otherwise scale mathematically
-    const serving100g = servingArray.find(
-      (s) => parseFloat(s.metric_serving_amount || 0) === 100
-    );
-    const serving = serving100g || servingArray[0];
-
-    const metricAmount = parseFloat(serving.metric_serving_amount || 100);
-    const scaleTo100g = 100 / (metricAmount === 0 ? 100 : metricAmount);
+    const servingAmount = parseFloat(serv.metric_serving_amount || 100) || 100;
+    // Cap scale at 10× to prevent explosion from very small serving sizes
+    const scale = Math.min(100 / servingAmount, 10);
 
     return {
-      name: detailsData.food.food_name || foodName,
-      source: "fatsecret",
-      calories: Math.round(parseFloat(serving.calories || 0) * scaleTo100g),
-      protein: Math.round(parseFloat(serving.protein || 0) * scaleTo100g),
-      carbs: Math.round(parseFloat(serving.carbohydrate || 0) * scaleTo100g),
-      fat: Math.round(parseFloat(serving.fat || 0) * scaleTo100g),
-      fiber: Math.round(parseFloat(serving.fiber || 0) * scaleTo100g),
+      name: det.food.food_name || foodName, source: "fatsecret",
+      calories: Math.round(parseFloat(serv.calories || 0) * scale),
+      protein:  Math.round(parseFloat(serv.protein || 0) * scale),
+      carbs:    Math.round(parseFloat(serv.carbohydrate || 0) * scale),
+      fat:      Math.round(parseFloat(serv.fat || 0) * scale),
+      fiber:    Math.round(parseFloat(serv.fiber || 0) * scale),
     };
-  } catch (error) {
-    console.error("FatSecret Lookup Error for", foodName, ":", error);
-    return null;
-  }
+  } catch { return null; }
 };
 
-// ─── USDA FoodData Central Fallback ──────────────────────────────────────────
+// ─── USDA Lookup ──────────────────────────────────────────────────────────────
 
-const getUSDANutritionalData = async (foodName) => {
-  const apiKey = (process.env.USDA_API_KEY || "").trim();
-  if (!apiKey) return null;
-
+const fetchUSDA = async (foodName) => {
+  const key = (process.env.USDA_API_KEY || "").trim();
+  if (!key) return null;
   try {
-    const response = await fetch(
-      `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(
-        foodName
-      )}&api_key=${apiKey}&pageSize=3&dataType=Foundation,SR%20Legacy`
+    const res = await fetch(
+      `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(foodName)}&api_key=${key}&pageSize=3&dataType=Foundation,SR%20Legacy`
     );
-
-    if (!response.ok) {
-      console.warn(`USDA failed for "${foodName}": HTTP ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    if (!data.foods || data.foods.length === 0) return null;
-
-    // Prefer Foundation > SR Legacy > Survey entries
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.foods?.length) return null;
     const food = data.foods[0];
-    const nutrients = food.foodNutrients || [];
-
-    const getNutrient = (id) => {
-      const n = nutrients.find((n) => n.nutrientId === id);
-      return n ? Math.round(n.value) : 0;
-    };
-
-    return {
-      name: food.description,
-      source: "usda",
-      calories: getNutrient(1008),
-      protein: getNutrient(1003),
-      carbs: getNutrient(1005),
-      fat: getNutrient(1004),
-      fiber: getNutrient(1079),
-    };
-  } catch (error) {
-    console.error("USDA Lookup Error for", foodName, ":", error);
-    return null;
-  }
+    const g = (id) => { const n = food.foodNutrients?.find((n) => n.nutrientId === id); return n ? Math.round(n.value) : 0; };
+    return { name: food.description, source: "usda", calories: g(1008), protein: g(1003), carbs: g(1005), fat: g(1004), fiber: g(1079) };
+  } catch { return null; }
 };
 
-// ─── Unified Nutrition Lookup: FatSecret → USDA fallback ─────────────────────
+// ─── P3.9: Open Food Facts (3rd cascade) ─────────────────────────────────────
 
-const getNutritionalData = async (fatSecretToken, foodName) => {
-  // 1. Try FatSecret first (richer data, better food names)
-  if (fatSecretToken) {
-    const fsResult = await getFatSecretNutritionalData(fatSecretToken, foodName);
-    if (fsResult) return fsResult;
+const fetchOpenFoodFacts = async (foodName) => {
+  try {
+    const res = await fetch(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(foodName)}&json=1&page_size=3&fields=product_name,nutriments`,
+      { headers: { "User-Agent": "NutriVision/1.0" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const products = (data.products || []).filter((p) => p.nutriments?.["energy-kcal_100g"]);
+    if (!products.length) return null;
+    const p = products[0];
+    const n = p.nutriments;
+    return {
+      name: p.product_name || foodName, source: "openfoodfacts",
+      calories: Math.round(n["energy-kcal_100g"] || 0),
+      protein: Math.round(n["proteins_100g"] || 0),
+      carbs: Math.round(n["carbohydrates_100g"] || 0),
+      fat: Math.round(n["fat_100g"] || 0),
+      fiber: Math.round(n["fiber_100g"] || 0),
+    };
+  } catch { return null; }
+};
+
+// ─── Nutrition validation: reject physically impossible values ────────────────
+// Max possible is pure fat = ~900 kcal/100g. Anything above = bad API data.
+
+const MAX_KCAL_PER_100G = 900;
+
+const validateNutrition = (data) => {
+  if (!data) return null;
+  if (data.calories > MAX_KCAL_PER_100G || data.calories < 0) {
+    console.warn(`  ⚠ Rejected bad data for "${data.name}": ${data.calories} kcal/100g [${data.source}]`);
+    return null;
   }
+  return data;
+};
 
-  // 2. Fall back to USDA FoodData Central
-  const usdaResult = await getUSDANutritionalData(foodName);
-  if (usdaResult) return usdaResult;
+// ─── Hardcoded fallbacks for common foods where APIs often return bad data ─────
 
+const NUTRITION_FALLBACKS = {
+  "pizza dough":          { calories: 270, protein: 8,  carbs: 53, fat: 3,  fiber: 2 },
+  "bread dough":          { calories: 250, protein: 8,  carbs: 50, fat: 2,  fiber: 2 },
+  "pasta dough":          { calories: 280, protein: 10, carbs: 55, fat: 2,  fiber: 2 },
+  "flour":                { calories: 364, protein: 10, carbs: 76, fat: 1,  fiber: 3 },
+  "pizza":                { calories: 266, protein: 11, carbs: 33, fat: 10, fiber: 2 },
+  "white rice":           { calories: 130, protein: 3,  carbs: 28, fat: 0,  fiber: 0 },
+  "brown rice":           { calories: 112, protein: 2,  carbs: 24, fat: 1,  fiber: 2 },
+  "olive oil":            { calories: 884, protein: 0,  carbs: 0,  fat: 100, fiber: 0 },
+  "butter":               { calories: 717, protein: 1,  carbs: 0,  fat: 81, fiber: 0 },
+  "mozzarella cheese":    { calories: 280, protein: 28, carbs: 2,  fat: 17, fiber: 0 },
+  "cheddar cheese":       { calories: 402, protein: 25, carbs: 1,  fat: 33, fiber: 0 },
+  "mixed meal":           { calories: 150, protein: 8,  carbs: 18, fat: 5,  fiber: 2 },
+};
+
+const getHardcodedFallback = (foodName) => {
+  const key = foodName.toLowerCase().trim();
+  // Exact match
+  if (NUTRITION_FALLBACKS[key]) return { ...NUTRITION_FALLBACKS[key], name: foodName, source: "hardcoded" };
+  // Partial match
+  for (const [k, v] of Object.entries(NUTRITION_FALLBACKS)) {
+    if (key.includes(k) || k.includes(key)) return { ...v, name: foodName, source: "hardcoded" };
+  }
   return null;
 };
 
-// ─── Gemini: Exhaustive Ingredient Detection ──────────────────────────────────
+// ─── P2.4: Cached unified lookup with validation ──────────────────────────────
 
-const detectIngredientsWithGemini = async (imagePath, mimeType) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return ["Mixed Meal"];
+const getNutritionalData = async (fatSecretToken, foodName) => {
+  const cached = getCachedNutrition(foodName);
+  if (cached) { console.log(`  ⚡ Cache hit: "${foodName}"`); return cached; }
+
+  let result = null;
+
+  if (fatSecretToken) result = validateNutrition(await fetchFatSecret(fatSecretToken, foodName));
+  if (!result) result = validateNutrition(await fetchUSDA(foodName));
+  if (!result) result = validateNutrition(await fetchOpenFoodFacts(foodName));
+  // Final fallback: hardcoded reliable values
+  if (!result) result = getHardcodedFallback(foodName);
+
+  if (result) setCachedNutrition(foodName, result);
+  return result;
+};
+
+// ─── P3.8: Gemini — ingredients + meal classification in one call ─────────────
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ─── Shared vision prompt builder ─────────────────────────────────────────────
+
+const buildVisionPrompt = (userMealType = "") => {
+  const mealHint = userMealType
+    ? `\nContext: The user says this is a ${userMealType}. Use this as a hint for portion sizes but do NOT let it limit ingredient detection — the image is the primary source of truth.`
+    : "";
+
+  return `You are a food recognition expert analyzing a food photograph.${mealHint}
+
+Return ONLY a raw JSON object with this exact structure:
+{
+  "ingredients": ["ingredient1", "ingredient2", ...],
+  "mealType": "breakfast|lunch|dinner|snack|drink|dessert",
+  "mealCategory": "short dish name (1-3 words, e.g. 'margherita pizza', 'chicken biryani')"
+}
+
+For ingredients — STRICT RULES:
+1. List ONLY what you can DIRECTLY SEE in the image. Do NOT infer or guess hidden ingredients.
+2. For a pizza: list the CRUST, SAUCE, and visible TOPPINGS — NOT flour, yeast, water.
+3. For a curry/stew: list the visible meat, vegetables, and the sauce/gravy — NOT spices you cannot see.
+4. For a salad: list each visible vegetable, protein, and dressing — NOT individual dressing ingredients.
+5. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce", "fresh basil").
+6. Be specific when you can tell ("mozzarella" not just "cheese").
+7. Maximum 10 ingredients. No duplicates. No vague terms like "food" or "ingredients".
+8. Do NOT list cooking methods as ingredients (not "grilled" alone — say "grilled chicken").`;
+};
+
+const parseVisionResponse = (text) => {
+  // Extract JSON even if there's surrounding text
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  const parsed = JSON.parse(match[0]);
+  const ingredients = Array.isArray(parsed.ingredients)
+    ? parsed.ingredients.map(String).filter(Boolean)
+    : [];
+  if (ingredients.length === 0) return null;
+  return {
+    succeeded: true,
+    ingredients,
+    mealType: parsed.mealType || "unknown",
+    mealCategory: parsed.mealCategory || "meal",
+  };
+};
+
+// ─── Nvidia API Vision (backup for Gemini rate limits) ─────────────────────────
+
+const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") => {
+  const apiKey = (process.env.NVIDIA_API || process.env.NVIDIA_API_KEY || "").trim();
+  if (!apiKey) return null;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const imageBuffer = fs.readFileSync(imagePath);
-    const base64Image = imageBuffer.toString("base64");
+    const base64Image = fs.readFileSync(imagePath).toString("base64");
+    const dataUrl = `data:${mimeType};base64,${base64Image}`;
+    const model = process.env.NVIDIA_MODEL || "meta/llama-3.2-90b-vision-instruct";
 
-    const prompt = `You are an expert chef and nutritionist. Carefully analyze this food image.
-
-List EVERY distinct ingredient or food component you can detect, including:
-- Main protein sources (meat, fish, eggs, legumes, tofu, etc.)
-- Vegetables and greens
-- Grains, pasta, rice, or bread components
-- Sauces, dressings, gravies, condiments
-- Dairy components (cheese, cream, butter, yogurt)
-- Fruits or garnishes
-- Nuts or seeds
-- Cooking fats or oils (only if visually evident)
-- Spices or herbs (only if clearly visible)
-
-Rules:
-1. Be exhaustive — list every visible component, even small ones.
-2. Use simple, common English names (e.g. "mozzarella cheese", "cherry tomato", "olive oil").
-3. Do NOT use vague terms like "food" or "meal" — be specific.
-4. Output ONLY a raw JSON array of strings, nothing else.
-
-Example: ["grilled chicken breast", "white rice", "steamed broccoli", "soy sauce", "sesame seeds"]`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        prompt,
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: mimeType,
-          },
-        },
-      ],
-      config: {
-        responseMimeType: "application/json",
+    const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        model,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: buildVisionPrompt(userMealType) },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        }],
+        temperature: 0.1,
+        max_tokens: 512,
+      }),
     });
 
-    const textOutput = response.text;
-    const ingredients = JSON.parse(textOutput);
-    if (Array.isArray(ingredients) && ingredients.length > 0) {
-      return ingredients.map((s) => String(s).trim()).filter(Boolean);
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.warn(`[Nvidia] HTTP ${res.status} — skipping. Error: ${errorText}`);
+      return null;
     }
-    return ["Mixed Meal"];
-  } catch (error) {
-    console.error("Gemini ingredient detection error:", error);
-    return ["Mixed Meal"];
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || "";
+    const result = parseVisionResponse(text);
+    if (result) console.log(`[Nvidia] ✓ Vision succeeded (${model})`);
+    return result;
+  } catch (err) {
+    console.error("[Nvidia] Error:", err?.message || err);
+    return null;
   }
 };
 
-// ─── Merge & Deduplicate Ingredient Lists ────────────────────────────────────
+// ─── Gemini Vision (primary) ──────────────────────────────────────────────────
 
-const mergeIngredients = (geminiList, yoloList) => {
-  const seen = new Set();
-  const merged = [];
+const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-flash-latest",
+  "gemini-flash-lite-latest"
+];
 
-  const add = (name) => {
-    const key = name.toLowerCase().trim();
-    if (key && !seen.has(key)) {
-      seen.add(key);
-      merged.push(name.trim());
+const analyzeImageWithGemini = async (imagePath, mimeType, userMealType = "") => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const ai = new GoogleGenAI({ apiKey });
+  const base64Image = fs.readFileSync(imagePath).toString("base64");
+  const prompt = buildVisionPrompt(userMealType);
+
+  // Try each model with up to 2 retries + quick backoff on 429 to avoid frontend 30s timeout
+  for (const model of GEMINI_MODELS) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: [prompt, { inlineData: { data: base64Image, mimeType } }],
+          config: { 
+            responseMimeType: "application/json",
+            temperature: 0.0 
+          },
+        });
+
+        const result = parseVisionResponse(response.text);
+        if (!result) { console.warn(`[Gemini] Empty result on ${model}`); break; }
+        if (model !== "gemini-2.5-flash") console.log(`[Gemini] Used model: ${model}`);
+        return result;
+      } catch (err) {
+        const is429 = err?.status === 429 || String(err).includes("429");
+        if (is429 && attempt < 2) {
+          const wait = 500 * attempt; // 500ms, 1000ms
+          console.warn(`[Gemini] 429 on ${model} (attempt ${attempt}) — retrying in ${wait}ms`);
+          await sleep(wait);
+        } else if (is429) {
+          console.warn(`[Gemini] 429 exhausted on ${model} — trying next`);
+          break;
+        } else {
+          console.error(`[Gemini] Error on ${model}:`, err?.message || err);
+          break;
+        }
+      }
     }
-  };
+  }
+  return null; // all Gemini models failed
+};
 
-  // Gemini gets priority (more descriptive names)
-  for (const name of geminiList) add(name);
+// ─── Combined vision analysis: Gemini → Groq → fail ──────────────────────────
 
-  // YOLO fills gaps (skip generic fallback labels like "ingredient_0")
+const analyzeImageWithVision = async (imagePath, mimeType, userMealType = "") => {
+  // 1. Try Gemini (primary)
+  const geminiResult = await analyzeImageWithGemini(imagePath, mimeType, userMealType);
+  if (geminiResult) return geminiResult;
+
+  // 2. Try Nvidia API (backup)
+  console.warn("[Vision] Gemini exhausted — trying Nvidia API Vision");
+  const nvidiaResult = await analyzeImageWithNvidia(imagePath, mimeType, userMealType);
+  if (nvidiaResult) return nvidiaResult;
+
+  // 3. Both failed
+  console.error("[Vision] All vision models exhausted");
+  return { succeeded: false, ingredients: [], mealType: "unknown", mealCategory: "meal" };
+};
+
+
+
+// ─── P2.6: Smart ingredient merge with substring deduplication ────────────────
+
+// Dish-level words YOLO might detect — these are meal names, not ingredients
+const DISH_LEVEL_WORDS = new Set([
+  "pizza", "burger", "sandwich", "salad", "sushi", "pasta", "biryani",
+  "curry", "soup", "stew", "food", "meal", "dish", "plate", "bowl",
+  "breakfast", "lunch", "dinner", "snack", "dessert", "drink",
+]);
+
+const isDishLevelName = (name) => {
+  const words = name.toLowerCase().trim().split(/\s+/);
+  return words.length === 1 && DISH_LEVEL_WORDS.has(words[0]);
+};
+
+const smartMergeIngredients = (geminiList, yoloList) => {
+  const candidates = [...geminiList];
+
+  // Only add YOLO names that look like specific ingredients, not dish-level names
   for (const { name } of yoloList) {
-    if (!name.startsWith("ingredient_")) add(name);
+    if (!name.startsWith("ingredient_") && !isDishLevelName(name)) {
+      candidates.push(name);
+    }
+  }
+
+  // Longer (more specific) names first so "grilled chicken breast" beats "chicken"
+  candidates.sort((a, b) => b.length - a.length);
+
+  const merged = [];
+  const seen = new Set();
+
+  for (const candidate of candidates) {
+    const cLow = candidate.toLowerCase().trim();
+    if (!cLow || seen.has(cLow)) continue;
+
+    const isRedundant = merged.some((existing) => {
+      const eLow = existing.toLowerCase();
+      return eLow.includes(cLow) || cLow.includes(eLow);
+    });
+
+    if (!isRedundant) {
+      merged.push(candidate.trim());
+      seen.add(cLow);
+    }
   }
 
   return merged;
 };
 
-// ─── Main Analysis Function ───────────────────────────────────────────────────
+// ─── P1.3: Confidence scoring ─────────────────────────────────────────────────
 
-const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl) => {
-  // 1. Run YOLO + Gemini + MiDaS in parallel for speed
-  const [yoloData, geminiIngredients, midasResult] = await Promise.all([
-    runYoloInference(imagePath),
-    detectIngredientsWithGemini(imagePath, mimeType),
-    runMiDaS(imagePath, 0.5), // bbox_ratio refined below after YOLO
-  ]);
+/**
+ * Computes a blended confidence score from:
+ *  - YOLO detection confidence (if available)
+ *  - Jaccard word-overlap between input name and resolved API name
+ */
+const calculateConfidence = (originalName, resolvedName, yoloConf = null) => {
+  const origWords = new Set(originalName.toLowerCase().split(/\s+/));
+  const resWords = new Set(resolvedName.toLowerCase().split(/\s+/));
+  const intersection = [...origWords].filter((w) => resWords.has(w)).length;
+  const union = new Set([...origWords, ...resWords]).size;
+  const nameMatch = union > 0 ? intersection / union : 0;
 
+  const score = yoloConf !== null
+    ? yoloConf * 0.5 + nameMatch * 0.3 + 0.2   // YOLO 50% + name 30% + base 20%
+    : nameMatch * 0.5 + 0.5;                     // name 50% + base 50% (Gemini only)
+
+  return parseFloat(Math.min(0.99, score).toFixed(2));
+};
+
+// ─── P1.2: Category-based typical portion weights ─────────────────────────────
+
+/**
+ * Returns the expected serving weight (grams) for a food item by category.
+ * Tries both the resolved API name and the original ingredient name.
+ */
+const getTypicalPortionWeight = (foodName, originalName = "") => {
+  // Try both names — originalName is often more accurately categorised
+  const names = [foodName.toLowerCase(), originalName.toLowerCase()].filter(Boolean);
+
+  for (const k of names) {
+    if (/\b(herb|basil|cilantro|parsley|mint|oregano|thyme|rosemary)\b/.test(k)) return 4;
+    if (/\b(spice|cumin|turmeric|cinnamon|cardamom|chili|pepper|paprika)\b/.test(k)) return 4;
+    if (/\b(salt|sugar|honey)\b/.test(k)) return 5;
+    if (/\b(oil|olive|butter|ghee)\b/.test(k)) return 15;
+    if (/\b(onion|garlic|ginger|lemon|lime|scallion|jalapeno)\b/.test(k)) return 20; // garnish/aromatics
+    if (/\b(sauce|gravy|dressing|ketchup|mayo|mustard|soy sauce|vinegar|chutney|dip)\b/.test(k)) return 30;
+    if (/\b(cream cheese|cream|yogurt|curd|raita|sour cream)\b/.test(k)) return 40;
+    if (/\b(cheese)\b/.test(k)) return 40;
+    if (/\b(bun|roll|pav|slider|biscuit)\b/.test(k)) return 60; // small breads
+    if (/\b(egg)\b/.test(k)) return 60;
+    if (/\b(nut|almond|cashew|walnut|peanut|seed)\b/.test(k)) return 20;
+    if (/\b(soup|broth|dal|stew|curry)\b/.test(k)) return 200;
+    if (/\b(chicken|beef|fish|pork|lamb|meat|steak|salmon|tuna|shrimp|prawn|tofu|paneer)\b/.test(k)) return 150;
+    // Grains/doughs — pizza dough, bread dough, etc.
+    if (/\b(rice|pasta|noodle|bread|roti|naan|tortilla|oats|quinoa|dough|pizza base|crust)\b/.test(k)) return 100;
+    if (/\b(potato|sweet potato|mash)\b/.test(k)) return 100;
+    if (/\b(fruit|apple|banana|orange|mango|berry|grape)\b/.test(k)) return 100;
+    if (/\b(vegetable|veggie|broccoli|carrot|spinach|bell pepper|tomato|cucumber|mushroom|corn|peas|lettuce|capsicum)\b/.test(k)) return 80;
+  }
+  return 80; // default
+};
+
+// ─── Main Analysis ────────────────────────────────────────────────────────────
+
+const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealType = "", uploadId = null) => {
+  const notify = (stage, msg) => {
+    if (uploadId) emitProgress(uploadId, stage, msg);
+  };
+
+  notify("vision", "AI is analyzing the image to detect ingredients...");
+  
+  // P1.1: Run YOLO first (fast local ONNX), then Gemini + MiDaS in parallel
+  // using the REAL bbox ratio from YOLO — not a hardcoded 0.5
+  const yoloData = await runYoloInference(imagePath);
   const bboxRatio = yoloData.ratio;
   const yoloIngredients = yoloData.detectedIngredients || [];
 
-  // 2. Merge both ingredient sources
-  const allIngredients = mergeIngredients(geminiIngredients, yoloIngredients);
-  console.log(`[NutriVision] ${allIngredients.length} unique ingredients detected:`, allIngredients);
+  const [geminiData, midasResult] = await Promise.all([
+    analyzeImageWithVision(imagePath, mimeType, userMealType),
+    runMiDaS(imagePath, bboxRatio),
+  ]);
 
-  // 3. Get FatSecret token (non-fatal if it fails — USDA will cover)
+  // Prefer user-provided meal type; fall back to AI inference
+  const mealType     = userMealType || geminiData.mealType;
+  const mealCategory = geminiData.mealCategory;
+
+  // If Gemini failed, don't use the "Mixed Meal" sentinel as an ingredient.
+  // Use YOLO results only; if YOLO also has nothing, throw a retryable error.
+  const geminiIngredients = geminiData.succeeded ? geminiData.ingredients : [];
+  if (!geminiData.succeeded) {
+    const yoloNames = yoloIngredients.filter(({ name }) => !isDishLevelName(name)).map(({ name }) => name);
+    if (yoloNames.length === 0) {
+      throw new Error("ANALYSIS_UNAVAILABLE: AI image analysis is temporarily rate-limited. Please try again in a moment.");
+    }
+    console.warn(`[NutriVision] Gemini failed — using ${yoloNames.length} YOLO-only ingredients`);
+  }
+
+  // P2.6: Smart merge with substring deduplication
+  const allIngredients = smartMergeIngredients(geminiIngredients, yoloIngredients);
+  console.log(`[NutriVision] ${allIngredients.length} ingredients | ${mealCategory} (${mealType}${userMealType ? ' — user' : ' — AI'})`);
+  console.log(`[NutriVision] Ingredients:`, allIngredients);
+
+  // FatSecret token (non-fatal — USDA/OFF covers if null)
   let fatSecretToken = null;
   try {
     fatSecretToken = await getFatSecretToken();
-    if (fatSecretToken) {
-      console.log("[NutriVision] FatSecret token obtained ✓");
-    }
+    if (fatSecretToken) console.log("[NutriVision] FatSecret token ✓");
   } catch (_) {
-    console.warn("[NutriVision] FatSecret auth failed — using USDA only.");
+    console.warn("[NutriVision] FatSecret auth failed — using USDA/OFF.");
   }
 
-  // 4. Build confidence map from YOLO for display
-  const yoloConfidenceMap = {};
+  // YOLO confidence map for scoring
+  const yoloConfMap = {};
   for (const { name, confidence } of yoloIngredients) {
-    yoloConfidenceMap[name.toLowerCase()] = confidence;
+    yoloConfMap[name.toLowerCase()] = confidence;
   }
 
-  // 5. Lookup nutrition for every ingredient (batched, max 6 concurrent)
+  // P2.4: Lookup nutrition with cache + 3-API cascade
+  notify("nutrition", "Fetching USDA/FatSecret nutritional data...");
   const BATCH_SIZE = 6;
   const detectedFoods = [];
   const ingredientsMacros = {};
+  const resolvedNames = new Set(); // dedup by API-returned name
 
   for (let i = 0; i < allIngredients.length; i += BATCH_SIZE) {
     const batch = allIngredients.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(
-      batch.map((ingredient) => getNutritionalData(fatSecretToken, ingredient))
-    );
+    const results = await Promise.all(batch.map((ing) => getNutritionalData(fatSecretToken, ing)));
 
     for (let j = 0; j < batch.length; j++) {
       const nutriments = results[j];
       const originalName = batch[j];
-      const confidence = yoloConfidenceMap[originalName.toLowerCase()] ?? 0.88;
 
       if (nutriments) {
         const key = nutriments.name.toLowerCase();
-        detectedFoods.push({ name: nutriments.name, confidence });
+        if (resolvedNames.has(key)) {
+          console.log(`  ⚠ Dup skipped: "${originalName}" → "${nutriments.name}"`);
+          continue;
+        }
+        resolvedNames.add(key);
+
+        // P1.3: Blended confidence score
+        const yoloConf = yoloConfMap[originalName.toLowerCase()] ?? null;
+        const confidence = calculateConfidence(originalName, nutriments.name, yoloConf);
+
+        // Store originalName alongside resolved name for better weight categorisation
+        detectedFoods.push({ name: nutriments.name, originalName, confidence });
         ingredientsMacros[key] = {
-          calories: nutriments.calories,
-          protein: nutriments.protein,
-          fat: nutriments.fat,
-          carbs: nutriments.carbs,
-          fiber: nutriments.fiber,
+          calories: nutriments.calories, protein: nutriments.protein,
+          fat: nutriments.fat, carbs: nutriments.carbs, fiber: nutriments.fiber,
           source: nutriments.source,
         };
-        console.log(`  ✓ ${nutriments.name} [${nutriments.source}] — ${nutriments.calories} kcal/100g`);
+        console.log(`  ✓ ${nutriments.name} [${nutriments.source}] ${nutriments.calories} kcal/100g | conf: ${confidence}`);
       } else {
-        // Surface the ingredient even without macro data
-        console.warn(`  ✗ No nutrition data found for: "${originalName}"`);
-        detectedFoods.push({ name: originalName, confidence: 0.7 });
-        ingredientsMacros[originalName.toLowerCase()] = {
-          calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, source: "unknown",
-        };
+        const fallbackKey = originalName.toLowerCase();
+        if (resolvedNames.has(fallbackKey)) continue;
+        resolvedNames.add(fallbackKey);
+
+        const confidence = calculateConfidence(originalName, originalName, yoloConfMap[fallbackKey] ?? null);
+        console.warn(`  ✗ No data: "${originalName}"`);
+        detectedFoods.push({ name: originalName, originalName, confidence });
+        ingredientsMacros[fallbackKey] = { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, source: "unknown" };
       }
     }
   }
 
-  // 6. Fallback: nothing detected at all
   if (detectedFoods.length === 0) {
     detectedFoods.push({ name: "Mixed Meal", confidence: 0.5 });
-    ingredientsMacros["mixed meal"] = {
-      calories: 250, protein: 10, fat: 10, carbs: 20, fiber: 2, source: "fallback",
-    };
+    ingredientsMacros["mixed meal"] = { calories: 250, protein: 10, fat: 10, carbs: 20, fiber: 2, source: "fallback" };
   }
 
-  // 7. Estimate total portion weight & volume
-  //    Priority: MiDaS (depth-based) → density lookup fallback
+  // P1.1: Volume/weight from MiDaS (calibrated) or YOLO fallback
+  notify("calculating", "Estimating portion weights and finalising calculations...");
   let calculatedWeight, totalVolume;
-
   if (midasResult.success && midasResult.volume_cm3 > 0) {
-    // MiDaS gives us real depth-derived volume and weight
     totalVolume = midasResult.volume_cm3;
     calculatedWeight = midasResult.weight_g;
-    console.log(`[NutriVision] Volume source: MiDaS → ${totalVolume} cm³, ${calculatedWeight} g`);
+    console.log(`[NutriVision] Volume: MiDaS → ${totalVolume} cm³, ${calculatedWeight} g`);
   } else {
-    // Fallback: YOLO bbox ratio × ingredient count × 250 g/ingredient
     const maxEstimatedWeight = detectedFoods.length * 250;
     calculatedWeight = Math.max(50, bboxRatio * maxEstimatedWeight);
-    totalVolume = 0; // computed per-ingredient below using density
-    console.log(`[NutriVision] Volume source: density fallback → weight ${calculatedWeight} g`);
+    totalVolume = 0;
+    console.log(`[NutriVision] Volume: density fallback → ${calculatedWeight} g`);
   }
 
-  const weightPerIngredient = calculatedWeight / detectedFoods.length;
+  // Apply meal-type portion scale factor:
+  //  snack = 0.5×, breakfast = 0.7×, lunch = 1.0×, dinner = 1.15×
+  //  (dosa can be breakfast or dinner — scale adjusts, ingredients stay the same)
+  const MEAL_SCALE = { snack: 0.5, breakfast: 0.7, lunch: 1.0, dinner: 1.15, drink: 0.4, dessert: 0.6 };
+  const mealScale = MEAL_SCALE[mealType] ?? 1.0;
+  if (mealScale !== 1.0) {
+    calculatedWeight *= mealScale;
+    totalVolume      *= mealScale;
+    console.log(`[NutriVision] Meal scale (${mealType}): ×${mealScale} → ${Math.round(calculatedWeight)} g`);
+  }
 
-  // 8. Scale 100 g macros → actual portion per ingredient
-  //    Volume per ingredient (when MiDaS failed): Weight / density
-  const processedFoods = detectedFoods.map((food) => {
+  // ── Sanity cap: total meal weight ─────────────────────────────────────────
+  // MiDaS has no real-world reference → can over-estimate by 3-5×.
+  // A realistic single-serving meal: 300g base + 100g per extra ingredient, max 1000g.
+  const MEAL_WEIGHT_CAP = Math.min(300 + detectedFoods.length * 100, 1000);
+  
+  const referenceFound = midasResult.scale_info?.reference_object_found;
+  if (!referenceFound && calculatedWeight > MEAL_WEIGHT_CAP) {
+    console.warn(`[NutriVision] Weight capped: ${Math.round(calculatedWeight)}g → ${MEAL_WEIGHT_CAP}g`);
+    totalVolume = totalVolume * (MEAL_WEIGHT_CAP / calculatedWeight);
+    calculatedWeight = MEAL_WEIGHT_CAP;
+  } else if (referenceFound) {
+    console.log(`[NutriVision] 🪙 Coin detected! Real-world scale applied. Bypassing heuristic weight caps.`);
+  }
+
+  // P1.2: Distribute weight proportionally by typical category portion size
+  const typicalWeights = detectedFoods.map((f) => getTypicalPortionWeight(f.name, f.originalName || ""));
+  const typicalSum = typicalWeights.reduce((a, b) => a + b, 0);
+
+  // Distribute proportionally, but apply different caps based on food type.
+  // We want to allow main items (like 4 pavs) to scale up significantly,
+  // but strictly cap garnishes (like butter, lemon) so they don't absorb the weight.
+  const portionWeights = typicalWeights.map((tw, i) => {
+    const raw = (tw / typicalSum) * calculatedWeight;
+    const name = detectedFoods[i].name.toLowerCase();
+    
+    // Define if item is a garnish/condiment that should be strictly capped
+    const isGarnish = /\b(herb|spice|salt|sugar|oil|butter|ghee|lemon|lime|onion|garlic|ginger|sauce|dressing|mayo)\b/.test(name);
+    
+    // Garnishes strictly capped at 1.5x typical. Main items can scale up to 4.5x typical.
+    const maxMultiplier = isGarnish ? 1.5 : 4.5;
+    const cap = tw * maxMultiplier; 
+    
+    return Math.min(raw, cap);
+  });
+  
+  // After capping, recalculate actual total volume proportionally
+  const actualTotalW = portionWeights.reduce((a, b) => a + b, 0);
+  if (actualTotalW < calculatedWeight * 0.99) {
+    calculatedWeight = actualTotalW; // sync to capped total
+  }
+
+  // Scale 100g macros → actual portion per ingredient
+  const processedFoods = detectedFoods.map((food, idx) => {
     const key = food.name.toLowerCase();
-    const m = ingredientsMacros[key] || {
-      calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0,
-    };
+    const m = ingredientsMacros[key] || { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 };
+    const w = portionWeights[idx];
 
-    const portionCalories = (m.calories / 100) * weightPerIngredient;
-    const portionProtein  = (m.protein  / 100) * weightPerIngredient;
-    const portionCarbs    = (m.carbs    / 100) * weightPerIngredient;
-    const portionFat      = (m.fat      / 100) * weightPerIngredient;
-    const portionFiber    = (m.fiber    / 100) * weightPerIngredient;
+    const portionCalories = (m.calories / 100) * w;
+    const portionProtein  = (m.protein  / 100) * w;
+    const portionCarbs    = (m.carbs    / 100) * w;
+    const portionFat      = (m.fat      / 100) * w;
+    const portionFiber    = (m.fiber    / 100) * w;
 
-    // Per-ingredient volume (used only when MiDaS fallback)
     const density = getFoodDensity(food.name);
     const portionVolume = midasResult.success
-      ? Math.round(totalVolume / detectedFoods.length) // split MiDaS total evenly
-      : weightPerIngredient / density;                 // density fallback
+      ? Math.round(totalVolume / detectedFoods.length)
+      : w / density;
 
     if (!midasResult.success) totalVolume += portionVolume;
 
-    // Enrich macros entry with per-gram density + actual portion values
     ingredientsMacros[key] = {
       ...m,
-      caloriesPerGram: parseFloat((m.calories / 100).toFixed(2)),
-      proteinPerGram:  parseFloat((m.protein  / 100).toFixed(2)),
-      carbsPerGram:    parseFloat((m.carbs    / 100).toFixed(2)),
-      fatPerGram:      parseFloat((m.fat      / 100).toFixed(2)),
-      fiberPerGram:    parseFloat((m.fiber    / 100).toFixed(2)),
+      caloriesPerGram:  parseFloat((m.calories / 100).toFixed(2)),
+      proteinPerGram:   parseFloat((m.protein  / 100).toFixed(2)),
+      carbsPerGram:     parseFloat((m.carbs    / 100).toFixed(2)),
+      fatPerGram:       parseFloat((m.fat      / 100).toFixed(2)),
+      fiberPerGram:     parseFloat((m.fiber    / 100).toFixed(2)),
       density,
-      portionWeight:   Math.round(weightPerIngredient),
-      portionVolume:   Math.round(portionVolume),
-      portionCalories: Math.round(portionCalories),
-      portionProtein:  Math.round(portionProtein),
-      portionCarbs:    Math.round(portionCarbs),
-      portionFat:      Math.round(portionFat),
-      portionFiber:    Math.round(portionFiber),
+      portionWeight:    Math.round(w),
+      portionVolume:    Math.round(portionVolume),
+      portionCalories:  Math.round(portionCalories),
+      portionProtein:   Math.round(portionProtein),
+      portionCarbs:     Math.round(portionCarbs),
+      portionFat:       Math.round(portionFat),
+      portionFiber:     Math.round(portionFiber),
     };
 
-    console.log(
-      `  → ${food.name}: ${Math.round(weightPerIngredient)}g | ` +
-      `${Math.round(portionVolume)} cm³ | ${Math.round(portionCalories)} kcal`
-    );
+    console.log(`  → ${food.name}: ${Math.round(w)}g | ${Math.round(portionCalories)} kcal | conf: ${food.confidence}`);
 
     return {
       ...food,
@@ -413,9 +676,9 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl) => {
     };
   });
 
-  const sum = (key) => processedFoods.reduce((acc, f) => acc + f[key], 0);
+  const sum = (k) => processedFoods.reduce((acc, f) => acc + f[k], 0);
 
-  return {
+  const result = {
     id: crypto.randomUUID(),
     imageUrl,
     foods: detectedFoods,
@@ -430,8 +693,13 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl) => {
     volume: Math.round(totalVolume),
     weight: Math.round(calculatedWeight),
     volumeSource: midasResult.success ? "midas" : "density",
+    mealType,
+    mealCategory,
     createdAt: new Date().toISOString(),
   };
+
+  notify("complete", "Analysis complete!");
+  return result;
 };
 
 module.exports = { analyzeFoodWithFatSecret };
