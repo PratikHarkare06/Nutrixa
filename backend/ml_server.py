@@ -37,6 +37,7 @@ def load_model():
 class DepthRequest(BaseModel):
     image_path: str
     bbox_ratio: float = 0.5
+    use_coin_scale: bool = False
 
 @app.post("/depth")
 def estimate_depth(req: DepthRequest):
@@ -69,26 +70,28 @@ def estimate_depth(req: DepthRequest):
         depth_norm = np.ones_like(depth) * 0.5
 
     # --- OpenCV Coin Detection (Reference Scale) ---
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.medianBlur(gray, 5)
-    # Detect circles (coins). Parameter 2 is inverse ratio of resolution, param 3 is min distance
-    circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=w/10,
-                               param1=50, param2=30, minRadius=int(w*0.02), maxRadius=int(w*0.15))
-
     reference_found = False
     pixel_size_cm = 0.0
     plate_diameter_cm = 25.0 # default assumption
 
-    if circles is not None:
-        circles = np.round(circles[0, :]).astype("int")
-        # Just take the first circle found as the coin
-        (cx_coin, cy_coin, r) = circles[0]
-        reference_found = True
-        # Assume standard coin is ~2.4 cm in diameter (Quarter / 5 Rupee)
-        coin_diameter_pixels = r * 2
-        pixel_size_cm = 2.4 / coin_diameter_pixels
-        print(f"[ML Server] Coin detected! Radius: {r}px, calculated pixel scale: {pixel_size_cm:.4f} cm/px")
-    else:
+    if req.use_coin_scale:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.medianBlur(gray, 5)
+        # Detect circles (coins). Parameter 2 is inverse ratio of resolution, param 3 is min distance
+        circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=w/10,
+                                   param1=50, param2=30, minRadius=int(w*0.02), maxRadius=int(w*0.15))
+
+        if circles is not None:
+            circles = np.round(circles[0, :]).astype("int")
+            # Just take the first circle found as the coin
+            (cx_coin, cy_coin, r) = circles[0]
+            reference_found = True
+            # Assume standard coin is ~2.4 cm in diameter (Quarter / 5 Rupee)
+            coin_diameter_pixels = r * 2
+            pixel_size_cm = 2.4 / coin_diameter_pixels
+            print(f"[ML Server] Coin detected! Radius: {r}px, calculated pixel scale: {pixel_size_cm:.4f} cm/px")
+    
+    if not reference_found:
         # Fallback to plate assumption
         plate_pixel_width = w * 0.70
         pixel_size_cm = plate_diameter_cm / plate_pixel_width

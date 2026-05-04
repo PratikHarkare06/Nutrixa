@@ -6,6 +6,7 @@ const { getFoodDensity } = require("../utils/foodDensity");
 const { runMiDaS } = require("../utils/midasDepth");
 const { getCachedNutrition, setCachedNutrition } = require("../utils/nutritionCache");
 const { emitProgress } = require("../utils/progressTracker");
+const { searchAnuvaadDb } = require("../utils/anuvaadSearch");
 
 // ─── FatSecret OAuth2 Token ───────────────────────────────────────────────────
 
@@ -173,7 +174,15 @@ const getNutritionalData = async (fatSecretToken, foodName) => {
 
   let result = null;
 
-  if (fatSecretToken) result = validateNutrition(await fetchFatSecret(fatSecretToken, foodName));
+  // 1. Try Indian database first for maximum authenticity
+  const anuvaadMatch = searchAnuvaadDb(foodName);
+  if (anuvaadMatch) {
+    result = validateNutrition(anuvaadMatch);
+    if (result) console.log(`  🇮🇳 Anuvaad match: "${foodName}" → "${result.name}"`);
+  }
+
+  // 2. Global fallbacks
+  if (!result && fatSecretToken) result = validateNutrition(await fetchFatSecret(fatSecretToken, foodName));
   if (!result) result = validateNutrition(await fetchUSDA(foodName));
   if (!result) result = validateNutrition(await fetchOpenFoodFacts(foodName));
   // Final fallback: hardcoded reliable values
@@ -205,9 +214,9 @@ Return ONLY a raw JSON object with this exact structure:
 
 For ingredients — STRICT RULES:
 1. List ONLY what you can DIRECTLY SEE in the image. Do NOT infer or guess hidden ingredients.
-2. For a pizza: list the CRUST, SAUCE, and visible TOPPINGS — NOT flour, yeast, water.
-3. For a curry/stew: list the visible meat, vegetables, and the sauce/gravy — NOT spices you cannot see.
-4. For a salad: list each visible vegetable, protein, and dressing — NOT individual dressing ingredients.
+2. DO NOT list micro-ingredients like spices, seeds (e.g. mustard seeds), herbs (e.g. curry leaves, cilantro), or garnishes. They have negligible calories and will confuse the nutritional database.
+3. For a pizza: list the CRUST, SAUCE, and visible TOPPINGS — NOT flour, yeast, water.
+4. For a curry/stew: list the MAIN visible components (e.g. the meat, the vegetables, and the sauce/gravy) — NOT the spices floating in it.
 5. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce", "fresh basil").
 6. Be specific when you can tell ("mozzarella" not just "cheese").
 7. Maximum 10 ingredients. No duplicates. No vague terms like "food" or "ingredients".
