@@ -43,6 +43,11 @@ export const uploadImageRequest = async (
   throw lastError;
 };
 
+export const correctIngredientRequest = async (analysisId: string, originalName: string, correctedName: string) => {
+  const response = await api.post("/upload/correct", { analysisId, originalName, correctedName });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

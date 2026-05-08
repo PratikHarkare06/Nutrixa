@@ -21,6 +21,7 @@ import {
   UserIcon,
 } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
+import { correctIngredientRequest } from "../services/uploadApi";
 
 type ResultsPageProps = {
   onBack: () => void;
@@ -79,8 +80,32 @@ const renderPieLabel = ({ cx, cy, innerRadius, outerRadius, midAngle, name }: an
 
 export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const analysis = useUploadStore((state) => state.analysis);
+  const setAnalysis = useUploadStore((state) => state.setAnalysis);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("JSON");
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [editingFoodName, setEditingFoodName] = useState<string | null>(null);
+  const [correctedFoodValue, setCorrectedFoodValue] = useState<string>("");
+  const [isCorrecting, setIsCorrecting] = useState<boolean>(false);
+
+  const handleCorrectIngredient = async (originalName: string) => {
+    if (!correctedFoodValue.trim() || correctedFoodValue === originalName) {
+      setEditingFoodName(null);
+      return;
+    }
+
+    setIsCorrecting(true);
+    try {
+      if (!analysis) return;
+      const response = await correctIngredientRequest(analysis.id, originalName, correctedFoodValue.trim());
+      setAnalysis(response.data);
+      setStatusMessage(`Successfully learned: "${originalName}" is actually "${response.data.foods.find((f: any) => f.confidence === 1.0)?.name || correctedFoodValue}". Nutritional values instantly updated!`);
+      setEditingFoodName(null);
+    } catch (err) {
+      setStatusMessage("Failed to save correction.");
+    } finally {
+      setIsCorrecting(false);
+    }
+  };
 
   const chartData = useMemo(
     () =>
@@ -316,8 +341,51 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                       return (
                         <div key={food.name} className="flex flex-col p-4 rounded-xl bg-background border border-panelBorder">
                           <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <div className="text-base font-bold text-textMain capitalize">{food.name}</div>
+                            <div className="flex-1 mr-4">
+                              {editingFoodName === food.name ? (
+                                <div className="flex items-center gap-2">
+                                  <input 
+                                    autoFocus
+                                    type="text" 
+                                    className="bg-panel border border-panelBorder rounded px-2 py-1 text-sm text-textMain focus:outline-none focus:border-primary flex-1"
+                                    value={correctedFoodValue}
+                                    onChange={(e) => setCorrectedFoodValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleCorrectIngredient(food.name);
+                                      if (e.key === 'Escape') setEditingFoodName(null);
+                                    }}
+                                    disabled={isCorrecting}
+                                  />
+                                  <button 
+                                    onClick={() => handleCorrectIngredient(food.name)}
+                                    className="text-xs font-bold bg-primary text-white px-2 py-1 rounded hover:bg-orange-600 disabled:opacity-50"
+                                    disabled={isCorrecting}
+                                  >
+                                    Save
+                                  </button>
+                                  <button 
+                                    onClick={() => setEditingFoodName(null)}
+                                    className="text-xs font-bold bg-panelBorder text-textMuted px-2 py-1 rounded hover:text-textMain disabled:opacity-50"
+                                    disabled={isCorrecting}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 group">
+                                  <div className="text-base font-bold text-textMain capitalize">{food.name}</div>
+                                  <button 
+                                    onClick={() => {
+                                      setEditingFoodName(food.name);
+                                      setCorrectedFoodValue(food.name);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-textMuted border border-panelBorder rounded px-1.5 py-0.5 hover:text-primary hover:border-primary"
+                                    title="Correct this ingredient"
+                                  >
+                                    ✎ Edit
+                                  </button>
+                                </div>
+                              )}
                               <div className="text-xs text-textMuted mt-0.5">
                                 {foodCategories[food.name] ?? "Detected Ingredient"}
                                 {macros?.portionWeight ? (
