@@ -51,6 +51,7 @@ export type UserProfile = {
   activityLevel: string;
   height: number;
   weight: number;
+  dietMode?: string;
   dietaryRestrictions: string[];
   foodAllergies: string[];
   healthGoals?: string[];

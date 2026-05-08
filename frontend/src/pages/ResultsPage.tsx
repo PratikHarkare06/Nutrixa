@@ -22,6 +22,8 @@ import {
 } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
 import { correctIngredientRequest } from "../services/uploadApi";
+import { fetchProfileRequest } from "../services/profileApi";
+import type { UserProfile } from "../types";
 
 type ResultsPageProps = {
   onBack: () => void;
@@ -86,6 +88,39 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const [editingFoodName, setEditingFoodName] = useState<string | null>(null);
   const [correctedFoodValue, setCorrectedFoodValue] = useState<string>("");
   const [isCorrecting, setIsCorrecting] = useState<boolean>(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  // Fetch profile to get Diet Mode
+  useMemo(() => {
+    fetchProfileRequest().then(res => {
+      if (res.success) setProfile(res.data);
+    }).catch(console.error);
+  }, []);
+
+  // Evaluate Diet Mode Constraints
+  const dietWarning = useMemo(() => {
+    if (!analysis || !profile || profile.dietMode === "Balanced") return null;
+    
+    const { carbs, fat, protein, calories } = analysis.macros;
+    const mode = profile.dietMode;
+    
+    // Convert to percentages of total meal calories
+    const carbsPercent = (carbs * 4) / calories;
+    const fatPercent = (fat * 9) / calories;
+    const proteinPercent = (protein * 4) / calories;
+
+    if (mode === "Keto (Low Carb)" && carbs > 25) {
+      return `⚠️ Keto Alert! This meal has ${carbs}g of carbs, which might break ketosis.`;
+    }
+    if (mode === "Low Fat" && fatPercent > 0.3) {
+      return `⚠️ High Fat Alert! ${Math.round(fatPercent * 100)}% of this meal's calories come from fat.`;
+    }
+    if (mode === "High Protein" && proteinPercent < 0.25) {
+      return `⚠️ Low Protein Alert! Only ${Math.round(proteinPercent * 100)}% protein. Consider adding a lean protein source.`;
+    }
+    
+    return null;
+  }, [analysis, profile]);
 
   const handleCorrectIngredient = async (originalName: string) => {
     if (!correctedFoodValue.trim() || correctedFoodValue === originalName) {
@@ -316,9 +351,15 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
               </button>
             </section>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-6">
-                <section className="rounded-2xl border border-panelBorder bg-panel p-6">
+            <>
+              {dietWarning && (
+                <div className="mb-6 rounded-lg border border-danger/50 bg-danger/10 p-4 text-sm font-medium text-danger flex items-center gap-2">
+                  <span className="text-xl">⚠️</span> {dietWarning.replace("⚠️ ", "")}
+                </div>
+              )}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <section className="rounded-2xl border border-panelBorder bg-panel p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">
                       <CameraIcon className="h-5 w-5" />
@@ -597,7 +638,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                   </div>
                 </section>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

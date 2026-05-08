@@ -28,6 +28,7 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [todayHistory, setTodayHistory] = useState<UploadAnalysis[]>([]);
+  const [allHistory, setAllHistory] = useState<UploadAnalysis[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   
   // AI Advisor State
@@ -47,9 +48,9 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
 
         if (profileRes?.data) setProfile(profileRes.data);
         if (historyRes?.data) {
-          // Filter only today's meals
+          setAllHistory(historyRes.data);
           const today = new Date().toISOString().split('T')[0];
-          const todaysMeals = historyRes.data.filter(item => item.createdAt.startsWith(today));
+          const todaysMeals = historyRes.data.filter((item: UploadAnalysis) => item.createdAt.startsWith(today));
           setTodayHistory(todaysMeals);
         }
       } finally {
@@ -72,6 +73,58 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
   const remainingCalories = Math.max(0, targetCalories - dailyCalories);
   const remainingProtein = Math.max(0, 100 - dailyProtein); // assuming 100g target
 
+  // Calculate Calendar & Streak
+  const last7Days = useMemo(() => {
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // normalize today to midnight
+    
+    // Create a map of YYYY-MM-DD -> total calories
+    const dailyTotals: Record<string, number> = {};
+    allHistory.forEach(item => {
+      const d = item.createdAt.split('T')[0];
+      dailyTotals[d] = (dailyTotals[d] || 0) + item.macros.calories;
+    });
+
+    let currentStreak = 0;
+    let streakActive = true;
+
+    // Go backwards from today to 30 days to calculate streak
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      
+      const cals = dailyTotals[dateStr] || 0;
+      // Goal hit if > 50% of target and < 110% of target
+      const hitGoal = cals > (targetCalories * 0.5) && cals <= (targetCalories * 1.1);
+      
+      // Streak calculation
+      if (streakActive) {
+        if (hitGoal) currentStreak++;
+        else if (i > 0) streakActive = false; // missing today doesn't break yesterday's streak yet
+      }
+
+      // We only need last 7 days for the UI array
+      if (i < 7) {
+        const isToday = i === 0;
+        let status = 'empty';
+        if (cals > 0) {
+          status = hitGoal ? 'success' : 'danger';
+        }
+        
+        days.unshift({
+          dateStr,
+          dayName: isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' }),
+          status,
+          cals
+        });
+      }
+    }
+    
+    return { days, currentStreak };
+  }, [allHistory, targetCalories]);
+
   const handleGetSuggestions = async () => {
     setIsLoadingSuggestions(true);
     try {
@@ -87,7 +140,14 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
   return (
     <div className="flex-1 overflow-y-auto px-8 py-12">
       <div className="max-w-4xl mx-auto">
-        <div className="text-sm font-medium text-textMuted mb-4">Dashboard</div>
+        <div className="flex justify-between items-center mb-4">
+          <div className="text-sm font-medium text-textMuted">Dashboard</div>
+          {last7Days.currentStreak > 0 && (
+            <div className="flex items-center gap-1.5 bg-orange-500/20 text-orange-500 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/30">
+              🔥 {last7Days.currentStreak}-Day Streak!
+            </div>
+          )}
+        </div>
 
         <h1 className="text-3xl font-bold tracking-tight text-textMain mb-2">
           Food Upload &amp; Analysis Dashboard
@@ -95,6 +155,27 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
         <p className="text-sm text-textMuted mb-8">
           Upload food images for AI-powered nutritional analysis and personalized health insights
         </p>
+
+        {/* Weekly Calendar */}
+        <div className="mb-6 flex items-center justify-between gap-2 overflow-x-auto pb-2">
+          {last7Days.days.map((day, idx) => (
+            <div key={idx} className="flex flex-col items-center flex-shrink-0 w-12">
+              <span className={`text-[10px] font-bold mb-1.5 ${day.dayName === 'Today' ? 'text-primary' : 'text-textMuted'}`}>
+                {day.dayName}
+              </span>
+              <div 
+                className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                  day.status === 'success' ? 'bg-success/20 border-success text-success' :
+                  day.status === 'danger' ? 'bg-danger/20 border-danger text-danger' :
+                  'bg-panel border-panelBorder text-textMuted'
+                }`}
+                title={`${day.cals} kcal`}
+              >
+                {day.status === 'success' ? '✓' : day.status === 'danger' ? '!' : '-'}
+              </div>
+            </div>
+          ))}
+        </div>
 
         {/* Daily Progress Widget */}
         <div className="mb-8 p-6 rounded-2xl border border-panelBorder bg-panel shadow-sm">

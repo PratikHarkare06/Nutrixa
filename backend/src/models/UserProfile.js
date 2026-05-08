@@ -16,6 +16,13 @@ const activityLevelOptions = [
   "Very Active",
 ];
 
+const dietModeOptions = [
+  "Balanced",
+  "Keto (Low Carb)",
+  "High Protein",
+  "Low Fat"
+];
+
 const userProfileSchema = new mongoose.Schema(
   {
     activity_level: {
@@ -43,6 +50,11 @@ const userProfileSchema = new mongoose.Schema(
       lowercase: true,
       required: true,
       trim: true,
+      type: String,
+    },
+    diet_mode: {
+      enum: dietModeOptions,
+      default: "Balanced",
       type: String,
     },
     food_allergies: {
@@ -105,6 +117,7 @@ const defaultUserProfile = {
   fullName: "Sarah Johnson",
   gender: "Female",
   height: 165,
+  dietMode: "Balanced",
   id: "default-profile",
   updatedAt: new Date(0).toISOString(),
   weight: 62,
@@ -161,6 +174,7 @@ const mapUserProfileToResponse = (profile) => {
     fullName: profile.name,
     gender: profile.gender,
     height: profile.height_cm,
+    dietMode: profile.diet_mode || "Balanced",
     id: profile._id.toString(),
     updatedAt: profile.updated_at,
     weight: profile.weight_kg,
@@ -175,5 +189,6 @@ module.exports = {
   defaultUserProfile,
   dietaryRestrictionOptions,
   genderOptions,
+  dietModeOptions,
   mapUserProfileToResponse,
 };

@@ -32,6 +32,13 @@ const activityOptions = [
   "Very Active",
 ];
 
+const dietModeOptions = [
+  "Balanced",
+  "Keto (Low Carb)",
+  "High Protein",
+  "Low Fat"
+];
+
 const dietaryOptions = [
   { label: "Vegetarian", description: "No meat, poultry, or fish" },
   { label: "Vegan", description: "No animal products" },
@@ -71,6 +78,7 @@ const defaultValues: ProfileFormValues = {
   fullName: "Sarah Johnson",
   gender: "Female",
   height: 165,
+  dietMode: "Balanced",
   weight: 62,
   healthGoals: [],
   primaryGoal: "Weight Maintenance",
@@ -94,6 +102,7 @@ const mapProfileToFormValues = (profile: UserProfile): ProfileFormValues => ({
   fullName: profile.fullName || "",
   gender: profile.gender || "Female",
   height: profile.height || 165,
+  dietMode: profile.dietMode || "Balanced",
   weight: profile.weight || 62,
   healthGoals: profile.healthGoals || [],
   primaryGoal: profile.primaryGoal || "Weight Maintenance",
@@ -378,6 +387,21 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
                     className="w-full rounded-lg border border-panelBorder bg-background px-4 py-2.5 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
                     {...register("weight", { valueAsNumber: true })}
                   />
+                </div>
+
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-xs font-medium text-textMain mb-2">
+                    Diet Mode Strategy <span className="text-danger">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full appearance-none rounded-lg border border-panelBorder bg-purple-900/10 px-4 py-2.5 text-sm font-semibold text-purple-400 focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                      {...register("dietMode")}
+                    >
+                      {dietModeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400 pointer-events-none" />
+                  </div>
                 </div>
               </div>
             </section>

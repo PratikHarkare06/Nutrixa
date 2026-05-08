@@ -5,6 +5,7 @@ const {
   defaultUserProfile,
   dietaryRestrictionOptions,
   genderOptions,
+  dietModeOptions,
   mapUserProfileToResponse,
 } = require("../models/UserProfile");
 const { createAppError } = require("../utils/createAppError");
@@ -36,6 +37,7 @@ const validateProfilePayload = (payload) => {
     typeof payload.activityLevel === "string" ? payload.activityLevel.trim() : "";
   const height = Number(payload.height);
   const weight = Number(payload.weight);
+  const dietMode = typeof payload.dietMode === "string" ? payload.dietMode.trim() : "Balanced";
   const dietaryRestrictions = normalizeArray(payload.dietaryRestrictions);
   const foodAllergies = normalizeArray(payload.foodAllergies);
 
@@ -64,6 +66,7 @@ const validateProfilePayload = (payload) => {
     !isPositiveNumber(weight) ||
     !genderOptions.includes(gender) ||
     !activityLevelOptions.includes(activityLevel) ||
+    !dietModeOptions.includes(dietMode) ||
     dietaryRestrictions.some((item) => !dietaryRestrictionOptions.includes(item)) ||
     foodAllergies.some((item) => !allergyOptions.includes(item));
 
@@ -79,6 +82,7 @@ const validateProfilePayload = (payload) => {
     food_allergies: foodAllergies,
     gender,
     height_cm: height,
+    diet_mode: dietMode,
     name: fullName,
     profile_key: "primary",
     weight_kg: weight,
