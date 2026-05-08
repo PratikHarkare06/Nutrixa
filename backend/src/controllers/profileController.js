@@ -122,4 +122,19 @@ const saveProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, saveProfile };
+const { getMealSuggestions } = require("../services/geminiAnalysisService");
+
+const suggestMeals = async (req, res, next) => {
+  try {
+    const { remainingCalories, remainingProtein } = req.body;
+    if (remainingCalories === undefined) {
+      return next(createAppError(400, "INVALID_DATA", "Missing remainingCalories"));
+    }
+    const suggestions = await getMealSuggestions(remainingCalories, remainingProtein || 20);
+    res.status(200).json({ success: true, data: suggestions });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getProfile, saveProfile, suggestMeals };

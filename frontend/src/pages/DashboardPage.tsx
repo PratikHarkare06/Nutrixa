@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { UploadCard } from "../components/UploadCard";
 import { useUploadStore } from "../store/uploadStore";
-import { fetchProfileRequest } from "../services/profileApi";
+import { fetchProfileRequest, suggestMealsRequest } from "../services/profileApi";
 import { fetchHistoryRequest } from "../services/historyApi";
+import { SparklesIcon } from "../components/icons";
 import type { UserProfile, UploadAnalysis } from "../types";
 
 type DashboardPageProps = {
@@ -28,6 +29,10 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [todayHistory, setTodayHistory] = useState<UploadAnalysis[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  
+  // AI Advisor State
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -60,8 +65,24 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
   }, [cancelUpload]);
 
   const dailyCalories = useMemo(() => todayHistory.reduce((sum, item) => sum + item.macros.calories, 0), [todayHistory]);
+  const dailyProtein = useMemo(() => todayHistory.reduce((sum, item) => sum + item.macros.protein, 0), [todayHistory]);
+  
   const targetCalories = profile?.maintenanceCalories || profile?.nutritionalTargets?.calories || 2000;
   const progressPercent = Math.min(100, Math.round((dailyCalories / targetCalories) * 100));
+  const remainingCalories = Math.max(0, targetCalories - dailyCalories);
+  const remainingProtein = Math.max(0, 100 - dailyProtein); // assuming 100g target
+
+  const handleGetSuggestions = async () => {
+    setIsLoadingSuggestions(true);
+    try {
+      const res = await suggestMealsRequest(remainingCalories, remainingProtein);
+      if (res.success) setSuggestions(res.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
 
   return (
     <div className="flex-1 overflow-y-auto px-8 py-12">
@@ -95,7 +116,38 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
           </div>
           <div className="mt-3 flex justify-between text-xs font-medium text-textMuted">
             <span>{todayHistory.length} meals logged today</span>
-            <span>{Math.max(0, targetCalories - dailyCalories)} kcal remaining</span>
+            <span>{remainingCalories} kcal remaining</span>
+          </div>
+
+          {/* AI Advisor Block */}
+          <div className="mt-6 pt-6 border-t border-panelBorder">
+            <button 
+              onClick={handleGetSuggestions}
+              disabled={isLoadingSuggestions || remainingCalories < 100}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-4 py-3 text-sm font-bold transition-colors disabled:opacity-50"
+            >
+              <SparklesIcon className="h-5 w-5" /> 
+              {isLoadingSuggestions ? "Consulting AI..." : "What should I eat next?"}
+            </button>
+            
+            {suggestions.length > 0 && (
+              <div className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-3">
+                {suggestions.map((meal, idx) => (
+                  <div key={idx} className="p-4 bg-background rounded-xl border border-panelBorder shadow-sm flex flex-col h-full">
+                    <div className="flex justify-between items-start mb-2 gap-2">
+                      <div className="font-bold text-sm text-textMain leading-tight">{meal.name}</div>
+                      <div className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded whitespace-nowrap">
+                        {meal.calories} kcal
+                      </div>
+                    </div>
+                    <div className="text-xs text-textMuted leading-relaxed flex-1 mb-3">{meal.description}</div>
+                    <div className="text-xs font-semibold text-success bg-success/10 px-2 py-1 rounded w-fit">
+                      {meal.protein}g protein
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

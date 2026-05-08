@@ -77,4 +77,31 @@ Ensure the estimated weight is in grams (g) and volume is in cubic centimeters (
   }
 };
 
-module.exports = { analyzeFoodImageWithGemini };
+const getMealSuggestions = async (remainingCalories, remainingProtein) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+  
+  const prompt = `You are an expert Indian nutritionist. The user has ${remainingCalories} kcal and ${remainingProtein}g of protein left for their daily target.
+Suggest 3 specific, realistic Indian meals (or snacks) they can eat right now to hit these targets as closely as possible without going over by more than 10%.
+Return a JSON array of 3 objects, each with:
+- "name": String (Dish name)
+- "description": String (Short 1-sentence appetizing description with portion sizes)
+- "calories": Number
+- "protein": Number`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [prompt],
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text());
+  } catch (error) {
+    console.error("Gemini Advisor Error:", error);
+    return [];
+  }
+};
+
+module.exports = { analyzeFoodImageWithGemini, getMealSuggestions };

@@ -45,6 +45,11 @@ export const saveProfileRequest = async (
   return response.data;
 };
 
+export const suggestMealsRequest = async (remainingCalories: number, remainingProtein: number, signal?: AbortSignal) => {
+  const response = await profileApi.post("/profile/suggest", { remainingCalories, remainingProtein }, { signal });
+  return response.data;
+};
+
 export const getProfileErrorMessage = (error: unknown) =>
   getApiErrorMessage(error, "Failed to load profile. Retry.");
 
