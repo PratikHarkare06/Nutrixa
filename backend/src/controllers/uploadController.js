@@ -146,4 +146,78 @@ const correctIngredient = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadImage, correctIngredient };
+const scanBarcode = async (req, res, next) => {
+  try {
+    const { barcode } = req.body;
+    if (!barcode) {
+      return next(createAppError(400, "INVALID_DATA", "Barcode is required"));
+    }
+
+    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+    const data = await response.json();
+
+    if (data.status !== 1 || !data.product) {
+      return next(createAppError(404, "NOT_FOUND", "Product not found in OpenFoodFacts database."));
+    }
+
+    const product = data.product;
+    const nutriments = product.nutriments || {};
+    
+    const name = product.product_name || "Unknown Packaged Food";
+    const brand = product.brands ? ` (${product.brands})` : "";
+    const fullName = `${name}${brand}`;
+
+    const calories = nutriments["energy-kcal_100g"] || nutriments.energy_100g / 4.184 || 0;
+    const protein = nutriments.proteins_100g || 0;
+    const carbs = nutriments.carbohydrates_100g || 0;
+    const fat = nutriments.fat_100g || 0;
+    const fiber = nutriments.fiber_100g || 0;
+    
+    // We assume 100g portion for the initial scan unless user edits it
+    const portionWeight = 100;
+
+    const ingredientsMacros = new Map();
+    ingredientsMacros.set(fullName.toLowerCase(), {
+      calories,
+      protein,
+      carbs,
+      fat,
+      fiber,
+      source: "OpenFoodFacts",
+      caloriesPerGram: calories / 100,
+      portionWeight,
+      portionCalories: calories,
+      portionProtein: protein,
+      portionCarbs: carbs,
+      portionFat: fat,
+      portionFiber: fiber
+    });
+
+    const savedEntry = await FoodEntry.create({
+      calories,
+      carbs,
+      fat,
+      fiber,
+      foods: [{ name: fullName, confidence: 1.0 }],
+      image_url: product.image_url || product.image_front_url || "", // OFF provides images!
+      protein,
+      volume: 0,
+      weight: portionWeight,
+      ingredients_macros: ingredientsMacros,
+      meal_type: "Snack", // Default
+      meal_category: "Packaged",
+      volume_source: "barcode",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Scanned: ${fullName}`,
+      data: mapFoodEntryToAnalysis(savedEntry),
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { uploadImage, correctIngredient, scanBarcode };

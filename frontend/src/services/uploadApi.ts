@@ -48,6 +48,11 @@ export const correctIngredientRequest = async (analysisId: string, originalName:
   return response.data;
 };
 
+export const scanBarcodeRequest = async (barcode: string) => {
+  const response = await api.post<UploadSuccessResponse>("/upload/barcode", { barcode });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

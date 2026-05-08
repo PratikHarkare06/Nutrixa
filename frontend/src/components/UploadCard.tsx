@@ -117,6 +117,42 @@ export const UploadCard = ({
         <strong>Pro Tip:</strong> Place a coin next to your plate for 100% accurate weight scanning!
       </p>
 
+      {/* Barcode Scanner UI */}
+      <div className="mt-8 w-full max-w-sm pt-6 border-t border-panelBorder flex flex-col items-center">
+        <p className="text-xs font-semibold text-textMuted uppercase tracking-widest mb-3">
+          Or scan a package barcode
+        </p>
+        <div className="flex w-full gap-2">
+          <input
+            type="text"
+            placeholder="e.g. 5449000000996"
+            className="flex-1 rounded-lg border border-panelBorder bg-background px-4 py-2 text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const barcode = e.currentTarget.value;
+                if (barcode) useUploadStore.getState().scanBarcode(barcode);
+                e.currentTarget.value = "";
+              }
+            }}
+          />
+          <button
+            onClick={(e) => {
+              const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+              const barcode = input.value;
+              if (barcode) useUploadStore.getState().scanBarcode(barcode);
+              input.value = "";
+            }}
+            disabled={isUploading}
+            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-orange-600 disabled:opacity-50 transition-colors"
+          >
+            Scan
+          </button>
+        </div>
+        <p className="text-[10px] text-textMuted mt-2 text-center">
+          Powered by OpenFoodFacts. Just type the number and press Scan!
+        </p>
+      </div>
+
       {errorMessage && (
         <div className="absolute bottom-4 rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
           {errorMessage}

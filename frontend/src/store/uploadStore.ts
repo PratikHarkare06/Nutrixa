@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getUploadErrorMessage, uploadImageRequest } from "../services/uploadApi";
+import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest } from "../services/uploadApi";
 import type { UploadAnalysis } from "../types";
 
 type UploadState = {
@@ -14,6 +14,7 @@ type UploadState = {
   clearError: () => void;
   cancelUpload: () => void;
   uploadImage: (file: File | null, mealType?: string) => Promise<boolean>;
+  scanBarcode: (barcode: string) => Promise<boolean>;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -110,6 +111,36 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         isUploading: false,
       });
 
+      return false;
+    }
+  },
+  scanBarcode: async (barcode: string) => {
+    if (!barcode.trim()) {
+      set({ errorMessage: "Please enter a valid barcode." });
+      return false;
+    }
+
+    set({
+      errorMessage: "",
+      progressMessage: "Scanning barcode database...",
+      isUploading: true,
+    });
+
+    try {
+      const response = await scanBarcodeRequest(barcode.trim());
+      set({
+        analysis: response.data,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+      return true;
+    } catch (error) {
+      set({
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
       return false;
     }
   },
