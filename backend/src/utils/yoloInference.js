@@ -157,11 +157,17 @@ const runYoloInference = async (imagePath) => {
       ratio,
       boxCount: finalBoxes.length,
       detectedIngredients, // [{name, confidence}, ...]
+      boxes: finalBoxes.map(b => [
+        b.box[0] / inputSize,
+        b.box[1] / inputSize,
+        b.box[2] / inputSize,
+        b.box[3] / inputSize
+      ]), // [ [x1_ratio, y1_ratio, x2_ratio, y2_ratio], ... ]
     };
   } catch (error) {
     console.error("YOLO Inference Error:", error);
     // Fallback to standard 0.5 ratio if ONNX fails
-    return { ratio: 0.5, boxCount: 1, detectedIngredients: [] };
+    return { ratio: 0.5, boxCount: 1, detectedIngredients: [], boxes: [] };
   }
 };
 

@@ -110,19 +110,63 @@ const defaultUserProfile = {
   weight: 62,
 };
 
-const mapUserProfileToResponse = (profile) => ({
-  activityLevel: profile.activity_level,
-  age: profile.age,
-  dietaryRestrictions: profile.dietary_restrictions || [],
-  email: profile.email,
-  foodAllergies: profile.food_allergies || [],
-  fullName: profile.name,
-  gender: profile.gender,
-  height: profile.height_cm,
-  id: profile._id.toString(),
-  updatedAt: profile.updated_at,
-  weight: profile.weight_kg,
-});
+const calculateBMIAndCalories = (weight, heightCm, age, gender, activityLevel) => {
+  if (!weight || !heightCm || !age || !gender || !activityLevel) return null;
+
+  const heightM = heightCm / 100;
+  const bmi = weight / (heightM * heightM);
+  
+  let bmiCategory = "Normal weight";
+  if (bmi < 18.5) bmiCategory = "Underweight";
+  else if (bmi >= 25 && bmi < 29.9) bmiCategory = "Overweight";
+  else if (bmi >= 30) bmiCategory = "Obese";
+
+  // BMR (Mifflin-St Jeor Equation)
+  let bmr = 10 * weight + 6.25 * heightCm - 5 * age;
+  bmr += gender === "Male" ? 5 : -161;
+
+  const activityMultipliers = {
+    "Sedentary": 1.2,
+    "Lightly Active": 1.375,
+    "Moderately Active": 1.55,
+    "Very Active": 1.725,
+  };
+  
+  const tdee = bmr * (activityMultipliers[activityLevel] || 1.2);
+
+  return {
+    bmi: parseFloat(bmi.toFixed(1)),
+    bmiCategory,
+    maintenanceCalories: Math.round(tdee),
+    weightLossCalories: Math.round(tdee - 500),
+    weightGainCalories: Math.round(tdee + 500),
+  };
+};
+
+const mapUserProfileToResponse = (profile) => {
+  const metrics = calculateBMIAndCalories(
+    profile.weight_kg, 
+    profile.height_cm, 
+    profile.age, 
+    profile.gender, 
+    profile.activity_level
+  );
+
+  return {
+    activityLevel: profile.activity_level,
+    age: profile.age,
+    dietaryRestrictions: profile.dietary_restrictions || [],
+    email: profile.email,
+    foodAllergies: profile.food_allergies || [],
+    fullName: profile.name,
+    gender: profile.gender,
+    height: profile.height_cm,
+    id: profile._id.toString(),
+    updatedAt: profile.updated_at,
+    weight: profile.weight_kg,
+    ...metrics,
+  };
+};
 
 module.exports = {
   UserProfile,

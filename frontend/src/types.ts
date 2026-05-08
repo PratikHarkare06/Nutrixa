@@ -64,6 +64,11 @@ export type UserProfile = {
     fiber: number;
     sodium: number;
   };
+  bmi?: number;
+  bmiCategory?: string;
+  maintenanceCalories?: number;
+  weightLossCalories?: number;
+  weightGainCalories?: number;
   updatedAt: string;
 };
 

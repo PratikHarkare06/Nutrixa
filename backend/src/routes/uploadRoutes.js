@@ -2,7 +2,7 @@ const express = require("express");
 const { getHistory } = require("../controllers/historyController");
 const { getProfile, saveProfile } = require("../controllers/profileController");
 const { uploadImage: uploadImageMiddleware } = require("../config/multer");
-const { uploadImage } = require("../controllers/uploadController");
+const { uploadImage, correctIngredient } = require("../controllers/uploadController");
 
 const { addClient } = require("../utils/progressTracker");
 
@@ -22,6 +22,7 @@ router.get("/upload/progress/:id", (req, res) => {
   addClient(req.params.id, res);
 });
 
+router.post("/upload/correct", correctIngredient);
 router.post("/upload", uploadImageMiddleware, uploadImage);
 
 module.exports = router;

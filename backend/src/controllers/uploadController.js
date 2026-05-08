@@ -45,4 +45,24 @@ const uploadImage = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadImage };
+const { addUserCorrection } = require("../utils/userMemory");
+
+const correctIngredient = async (req, res, next) => {
+  try {
+    const { wrongName, correctName } = req.body;
+    if (!wrongName || !correctName) {
+      return next(createAppError(400, "INVALID_DATA", "Missing wrongName or correctName"));
+    }
+    
+    addUserCorrection(wrongName, correctName);
+    
+    res.status(200).json({
+      success: true,
+      message: `Memory updated: ${wrongName} will now be identified as ${correctName}`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { uploadImage, correctIngredient };

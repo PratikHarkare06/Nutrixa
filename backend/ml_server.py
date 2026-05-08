@@ -38,6 +38,7 @@ class DepthRequest(BaseModel):
     image_path: str
     bbox_ratio: float = 0.5
     use_coin_scale: bool = False
+    bounding_boxes: list = [] # List of [x1, y1, x2, y2]
 
 @app.post("/depth")
 def estimate_depth(req: DepthRequest):
@@ -97,16 +98,25 @@ def estimate_depth(req: DepthRequest):
         pixel_size_cm = plate_diameter_cm / plate_pixel_width
 
     pixel_area_cm2 = pixel_size_cm ** 2
-    # Food region mask
-    cx_f, cy_f = w // 2, h // 2
-    side_fraction = float(req.bbox_ratio) ** 0.5
-    food_w = max(1, int(w * side_fraction))
-    food_h = max(1, int(h * side_fraction))
-    x1, x2 = max(0, cx_f - food_w // 2), min(w, cx_f + food_w // 2)
-    y1, y2 = max(0, cy_f - food_h // 2), min(h, cy_f + food_h // 2)
-
     mask = np.zeros((h, w), dtype=np.float32)
-    mask[y1:y2, x1:x2] = 1.0
+
+    # Food region mask using YOLO bounding boxes (Segmentation Masking)
+    if req.bounding_boxes and len(req.bounding_boxes) > 0:
+        for box in req.bounding_boxes:
+            # Handle float ratios from JS
+            x1_r, y1_r, x2_r, y2_r = map(float, box)
+            x1_b, x2_b = max(0, int(x1_r * w)), min(w, int(x2_r * w))
+            y1_b, y2_b = max(0, int(y1_r * h)), min(h, int(y2_r * h))
+            mask[y1_b:y2_b, x1_b:x2_b] = 1.0
+    else:
+        # Fallback to center crop based on ratio
+        cx_f, cy_f = w // 2, h // 2
+        side_fraction = float(req.bbox_ratio) ** 0.5
+        food_w = max(1, int(w * side_fraction))
+        food_h = max(1, int(h * side_fraction))
+        x1, x2 = max(0, cx_f - food_w // 2), min(w, cx_f + food_w // 2)
+        y1, y2 = max(0, cy_f - food_h // 2), min(h, cy_f + food_h // 2)
+        mask[y1:y2, x1:x2] = 1.0
 
     max_food_height_cm = 6.0
 

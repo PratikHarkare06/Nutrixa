@@ -118,6 +118,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -129,6 +130,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
       try {
         const response = await fetchProfileRequest(controller.signal);
         reset(mapProfileToFormValues(response.data));
+        setProfile(response.data);
       } catch (error) {
         if ((error as { code?: string }).code !== "ERR_CANCELED") {
           setErrorMessage(getProfileErrorMessage(error));
@@ -169,6 +171,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
       });
 
       reset(mapProfileToFormValues(response.data));
+      setProfile(response.data);
       setSaveMessage("Profile saved successfully.");
     } catch (error) {
       setErrorMessage(getSaveProfileErrorMessage(error));
@@ -227,6 +230,54 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
           <form id="profile-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             
             {/* Personal Information */}
+            {profile && profile.bmi && (
+              <section className="rounded-2xl border border-panelBorder bg-panel p-6 mb-6">
+                <div className="flex items-start gap-3 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-900/30 text-blue-400">
+                    <UserIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-textMain">Calculated Health Metrics</h2>
+                    <p className="text-xs text-textMuted mt-1">Based on your age, height, weight, and activity level</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="rounded-xl border border-panelBorder bg-background p-4 flex flex-col justify-center">
+                    <div className="text-xs font-medium text-textMuted mb-1">Body Mass Index (BMI)</div>
+                    <div className="flex items-end gap-2">
+                      <div className="text-3xl font-bold text-textMain">{profile.bmi}</div>
+                      <div className={`text-sm font-medium mb-1 ${
+                        profile.bmiCategory === 'Normal weight' ? 'text-success' :
+                        profile.bmiCategory === 'Underweight' ? 'text-blue-400' :
+                        profile.bmiCategory === 'Overweight' ? 'text-orange-400' : 'text-danger'
+                      }`}>
+                        {profile.bmiCategory}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-panelBorder bg-background p-4">
+                    <div className="text-xs font-medium text-textMuted mb-3">Daily Caloric Targets</div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-textMuted">Maintenance:</span>
+                        <span className="font-bold text-textMain">{profile.maintenanceCalories} kcal</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-textMuted">Weight Loss:</span>
+                        <span className="font-bold text-blue-400">{profile.weightLossCalories} kcal</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-textMuted">Weight Gain:</span>
+                        <span className="font-bold text-orange-400">{profile.weightGainCalories} kcal</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
             <section className="rounded-2xl border border-panelBorder bg-panel p-6">
               <div className="flex items-start gap-3 mb-6">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-900/30 text-primary">

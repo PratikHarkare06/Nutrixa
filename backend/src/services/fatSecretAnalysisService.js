@@ -7,6 +7,7 @@ const { runMiDaS } = require("../utils/midasDepth");
 const { getCachedNutrition, setCachedNutrition } = require("../utils/nutritionCache");
 const { emitProgress } = require("../utils/progressTracker");
 const { searchAnuvaadDb } = require("../utils/anuvaadSearch");
+const { applyUserCorrections } = require("../utils/userMemory");
 
 // ─── FatSecret OAuth2 Token ───────────────────────────────────────────────────
 
@@ -213,14 +214,14 @@ Return ONLY a raw JSON object with this exact structure:
 }
 
 For ingredients — STRICT RULES:
-1. List ONLY what you can DIRECTLY SEE in the image. Do NOT infer or guess hidden ingredients.
-2. DO NOT list micro-ingredients like spices, seeds (e.g. mustard seeds), herbs (e.g. curry leaves, cilantro), or garnishes. They have negligible calories and will confuse the nutritional database.
-3. For a pizza: list the CRUST, SAUCE, and visible TOPPINGS — NOT flour, yeast, water.
-4. For a curry/stew: list the MAIN visible components (e.g. the meat, the vegetables, and the sauce/gravy) — NOT the spices floating in it.
-5. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce", "fresh basil").
-6. Be specific when you can tell ("mozzarella" not just "cheese").
-7. Maximum 10 ingredients. No duplicates. No vague terms like "food" or "ingredients".
-8. Do NOT list cooking methods as ingredients (not "grilled" alone — say "grilled chicken").`;
+1. STRICT ANTI-HALLUCINATION: List ONLY what is physically, visibly present in the photograph.
+2. DO NOT infer accompanying side dishes. If the photo is of a dish that is typically served with sides (e.g. Biryani with Raita, Dosa with Chutney), DO NOT list the sides unless they are explicitly visible in the frame.
+3. DO NOT list micro-ingredients like spices, seeds (e.g. mustard seeds), herbs (e.g. curry leaves), or garnishes (e.g. chopped onions, green chilis). They have negligible calories and will confuse the nutritional database.
+4. For a pizza: list the CRUST, SAUCE, and visible TOPPINGS — NOT flour, yeast, water.
+5. For a curry/stew: list the MAIN visible components (e.g. the meat, the vegetables, and the sauce) — NOT the spices.
+6. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce").
+7. Maximum 6 ingredients. Focus ONLY on the major caloric components.
+8. Do NOT list cooking methods as ingredients.`;
 };
 
 const parseVisionResponse = (text) => {
@@ -477,10 +478,11 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealT
   const yoloData = await runYoloInference(imagePath);
   const bboxRatio = yoloData.ratio;
   const yoloIngredients = yoloData.detectedIngredients || [];
+  const yoloBoxes = yoloData.boxes || [];
 
   const [geminiData, midasResult] = await Promise.all([
     analyzeImageWithVision(imagePath, mimeType, userMealType),
-    runMiDaS(imagePath, bboxRatio),
+    runMiDaS(imagePath, bboxRatio, yoloBoxes),
   ]);
 
   // Prefer user-provided meal type; fall back to AI inference
@@ -498,8 +500,10 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealT
     console.warn(`[NutriVision] Gemini failed — using ${yoloNames.length} YOLO-only ingredients`);
   }
 
-  // P2.6: Smart merge with substring deduplication
-  const allIngredients = smartMergeIngredients(geminiIngredients, yoloIngredients);
+  // P2.6: Smart merge with substring deduplication + User Memory Corrections
+  const correctedGemini = applyUserCorrections(geminiIngredients);
+  const correctedYolo = yoloIngredients.map(y => ({ ...y, name: applyUserCorrections([y.name])[0] }));
+  const allIngredients = smartMergeIngredients(correctedGemini, correctedYolo);
   console.log(`[NutriVision] ${allIngredients.length} ingredients | ${mealCategory} (${mealType}${userMealType ? ' — user' : ' — AI'})`);
   console.log(`[NutriVision] Ingredients:`, allIngredients);
 

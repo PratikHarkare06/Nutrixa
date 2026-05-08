@@ -14,6 +14,7 @@ const path = require("path");
  *
  * @param {string} imagePath  Absolute path to the uploaded image.
  * @param {number} bboxRatio  YOLO bbox area ratio (0–1), used to locate food region.
+ * @param {Array<number[]>} boundingBoxes Optional YOLO bounding boxes [x1, y1, x2, y2] to mask background.
  * @returns {Promise<{
  *   success: boolean,
  *   method: string,
@@ -24,12 +25,12 @@ const path = require("path");
  *   error?: string
  * }>}
  */
-const runMiDaS = async (imagePath, bboxRatio = 0.5) => {
+const runMiDaS = async (imagePath, bboxRatio = 0.5, boundingBoxes = []) => {
   try {
     const res = await fetch("http://localhost:8000/depth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_path: imagePath, bbox_ratio: bboxRatio })
+      body: JSON.stringify({ image_path: imagePath, bbox_ratio: bboxRatio, bounding_boxes: boundingBoxes })
     });
 
     if (!res.ok) {

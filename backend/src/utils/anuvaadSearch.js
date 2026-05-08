@@ -30,10 +30,12 @@ const searchAnuvaadDb = (query) => {
   let bestScore = 0;
 
   for (const item of anuvaadData) {
-    const itemName = item.food_name.toLowerCase();
+    // Strip Hindi translations in parentheses for fair length comparisons
+    const rawName = item.food_name.toLowerCase();
+    const itemName = rawName.replace(/\s*\([^)]*\)/g, '').trim();
     
     // Exact match is an instant win
-    if (itemName === query.toLowerCase()) {
+    if (itemName === query.toLowerCase() || rawName === query.toLowerCase()) {
       bestMatch = item;
       bestScore = 100;
       break;
@@ -50,17 +52,17 @@ const searchAnuvaadDb = (query) => {
     // Score based on percentage of query words matched
     const score = matches / queryWords.length;
     
-    // Penalize if the target name is extremely long compared to the query (to avoid matching generic strings)
+    // Penalize if the target name is extremely long compared to the query
     const lengthPenalty = Math.max(1, itemName.length / (query.length + 5));
     const finalScore = score / lengthPenalty;
 
-    if (finalScore > bestScore && finalScore > 0.75) {
+    if (finalScore > bestScore && finalScore > 0.6) {
       bestScore = finalScore;
       bestMatch = item;
     }
   }
 
-  if (bestMatch && bestScore > 0.75) {
+  if (bestMatch && bestScore > 0.6) {
     // Map it to standard output format expected by validateNutrition
     return {
       name: bestMatch.food_name,
