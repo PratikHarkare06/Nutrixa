@@ -167,4 +167,51 @@ const generateDietPlan = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, saveProfile, suggestMeals, generateDietPlan };
+const { ProgressLog } = require("../models/ProgressLog");
+const { env } = require("../config/env");
+
+const getProgressLogs = async (req, res, next) => {
+  try {
+    const logs = await ProgressLog.find({}).sort({ created_at: -1 }).lean();
+    res.status(200).json({ success: true, data: logs });
+  } catch (error) {
+    next(createAppError(500, "FETCH_FAILED", "Failed to fetch progress logs."));
+  }
+};
+
+const addProgressLog = async (req, res, next) => {
+  try {
+    const { weight_kg, date, notes } = req.body;
+    
+    if (!weight_kg || !date) {
+      return next(createAppError(400, "INVALID_DATA", "Weight and date are required."));
+    }
+
+    const weightNum = parseFloat(weight_kg);
+    let imageUrl = null;
+    
+    if (req.file) {
+      imageUrl = `${env.appUrl}/uploads/${req.file.filename}`;
+    }
+
+    const newLog = await ProgressLog.create({
+      date,
+      weight_kg: weightNum,
+      image_url: imageUrl,
+      notes: notes || "",
+    });
+
+    // Automatically update the user's master profile weight
+    await UserProfile.findOneAndUpdate(
+      profileFilter,
+      { weight_kg: weightNum },
+      { upsert: true }
+    );
+
+    res.status(200).json({ success: true, data: newLog });
+  } catch (error) {
+    next(createAppError(500, "SAVE_FAILED", "Failed to add progress log."));
+  }
+};
+
+module.exports = { getProfile, saveProfile, suggestMeals, generateDietPlan, getProgressLogs, addProgressLog };

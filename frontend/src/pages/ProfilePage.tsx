@@ -17,6 +17,7 @@ import {
   saveProfileRequest,
 } from "../services/profileApi";
 import type { UserProfile } from "../types";
+import { ProgressTracker } from "../components/ProgressTracker";
 
 type ProfilePageProps = {
   onNavigate: (nextPath: string) => void;
@@ -128,6 +129,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<"preferences" | "transformation">("preferences");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -222,11 +224,29 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
             <span className="text-textMain">Profile Settings</span>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-textMain mb-8">
-            Profile &amp; Preferences
-          </h1>
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-textMain">
+              Profile &amp; Journey
+            </h1>
+            <div className="flex bg-panel border border-panelBorder rounded-xl p-1">
+              <button
+                className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${activeTab === 'preferences' ? 'bg-primary text-white' : 'text-textMuted hover:text-textMain'}`}
+                onClick={() => setActiveTab('preferences')}
+                type="button"
+              >
+                Preferences
+              </button>
+              <button
+                className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${activeTab === 'transformation' ? 'bg-primary text-white' : 'text-textMuted hover:text-textMain'}`}
+                onClick={() => setActiveTab('transformation')}
+                type="button"
+              >
+                Transformation
+              </button>
+            </div>
+          </div>
 
-          {(errorMessage || errors.root?.message || saveMessage) && !isLoading && (
+          {(errorMessage || errors.root?.message || saveMessage) && !isLoading && activeTab === 'preferences' && (
             <div className={`mb-6 rounded-lg border p-4 text-sm font-medium ${
               saveMessage && !errorMessage && !errors.root?.message
                 ? "border-success/50 bg-success/10 text-success"
@@ -236,6 +256,15 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
             </div>
           )}
 
+          {activeTab === 'transformation' ? (
+            <ProgressTracker onWeightUpdate={() => {
+              // Reload profile if weight was updated
+              fetchProfileRequest().then(res => {
+                reset(mapProfileToFormValues(res.data));
+                setProfile(res.data);
+              });
+            }} />
+          ) : (
           <form id="profile-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             
             {/* Personal Information */}
@@ -591,6 +620,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
               </div>
             </section>
           </form>
+          )}
         </div>
       </div>
 

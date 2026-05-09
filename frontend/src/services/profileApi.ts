@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import type { ApiErrorResponse, ProfileSuccessResponse, UserProfile } from "../types";
+import type { ApiErrorResponse, ProfileSuccessResponse, UserProfile, ProgressLog } from "../types";
 
 const profileApi = axios.create({
   baseURL: "http://localhost:5001/api",
@@ -52,6 +52,28 @@ export const suggestMealsRequest = async (remainingCalories: number, remainingPr
 
 export const generateDietPlanRequest = async (signal?: AbortSignal) => {
   const response = await profileApi.post("/profile/diet-plan", {}, { signal });
+  return response.data;
+};
+
+export const fetchProgressLogsRequest = async (): Promise<{ success: boolean; data: ProgressLog[] }> => {
+  const response = await profileApi.get("/profile/progress");
+  return response.data;
+};
+
+export const uploadProgressLogRequest = async (weight_kg: number, date: string, notes: string, file?: File | null): Promise<{ success: boolean; data: ProgressLog }> => {
+  const formData = new FormData();
+  formData.append("weight_kg", weight_kg.toString());
+  formData.append("date", date);
+  if (notes) formData.append("notes", notes);
+  if (file) {
+    formData.append("image", file);
+  }
+
+  const response = await profileApi.post("/profile/progress", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return response.data;
 };
 

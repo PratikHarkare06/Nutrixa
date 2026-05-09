@@ -116,6 +116,15 @@ export type DailyWater = {
   water_intake_ml: number;
 };
 
+export type ProgressLog = {
+  _id: string;
+  date: string;
+  weight_kg: number;
+  image_url: string | null;
+  notes: string;
+  created_at: string;
+};
+
 export type HistoryPagination = {
   limit: number;
   page: number;
