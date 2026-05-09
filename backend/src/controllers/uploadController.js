@@ -167,44 +167,50 @@ const scanBarcode = async (req, res, next) => {
     const brand = product.brands ? ` (${product.brands})` : "";
     const fullName = `${name}${brand}`;
 
-    const calories = nutriments["energy-kcal_100g"] || nutriments.energy_100g / 4.184 || 0;
-    const protein = nutriments.proteins_100g || 0;
-    const carbs = nutriments.carbohydrates_100g || 0;
-    const fat = nutriments.fat_100g || 0;
-    const fiber = nutriments.fiber_100g || 0;
+    const calories100g = nutriments["energy-kcal_100g"] || nutriments.energy_100g / 4.184 || 0;
+    const protein100g = nutriments.proteins_100g || 0;
+    const carbs100g = nutriments.carbohydrates_100g || 0;
+    const fat100g = nutriments.fat_100g || 0;
+    const fiber100g = nutriments.fiber_100g || 0;
     
-    // We assume 100g portion for the initial scan unless user edits it
-    const portionWeight = 100;
+    // Extract actual package or serving quantity, defaulting to 100g if unknown
+    const portionWeight = parseFloat(product.product_quantity) || parseFloat(product.serving_quantity) || 100;
+
+    const portionCalories = (calories100g / 100) * portionWeight;
+    const portionProtein = (protein100g / 100) * portionWeight;
+    const portionCarbs = (carbs100g / 100) * portionWeight;
+    const portionFat = (fat100g / 100) * portionWeight;
+    const portionFiber = (fiber100g / 100) * portionWeight;
 
     const ingredientsMacros = new Map();
     ingredientsMacros.set(fullName.toLowerCase(), {
-      calories,
-      protein,
-      carbs,
-      fat,
-      fiber,
+      calories: calories100g,
+      protein: protein100g,
+      carbs: carbs100g,
+      fat: fat100g,
+      fiber: fiber100g,
       source: "OpenFoodFacts",
-      caloriesPerGram: calories / 100,
+      caloriesPerGram: calories100g / 100,
       portionWeight,
-      portionCalories: calories,
-      portionProtein: protein,
-      portionCarbs: carbs,
-      portionFat: fat,
-      portionFiber: fiber
+      portionCalories: Math.round(portionCalories),
+      portionProtein: Math.round(portionProtein),
+      portionCarbs: Math.round(portionCarbs),
+      portionFat: Math.round(portionFat),
+      portionFiber: Math.round(portionFiber)
     });
 
     const savedEntry = await FoodEntry.create({
-      calories,
-      carbs,
-      fat,
-      fiber,
+      calories: Math.round(portionCalories),
+      carbs: Math.round(portionCarbs),
+      fat: Math.round(portionFat),
+      fiber: Math.round(portionFiber),
       foods: [{ name: fullName, confidence: 1.0 }],
-      image_url: product.image_url || product.image_front_url || "", // OFF provides images!
-      protein,
+      image_url: product.image_url || product.image_front_url || "",
+      protein: Math.round(portionProtein),
       volume: 0,
-      weight: portionWeight,
+      weight: Math.round(portionWeight),
       ingredients_macros: ingredientsMacros,
-      meal_type: "Snack", // Default
+      meal_type: "Snack",
       meal_category: "Packaged",
       volume_source: "barcode",
     });

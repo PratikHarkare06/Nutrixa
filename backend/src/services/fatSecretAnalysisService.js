@@ -154,6 +154,9 @@ const NUTRITION_FALLBACKS = {
   "mozzarella cheese":    { calories: 280, protein: 28, carbs: 2,  fat: 17, fiber: 0 },
   "cheddar cheese":       { calories: 402, protein: 25, carbs: 1,  fat: 33, fiber: 0 },
   "mixed meal":           { calories: 150, protein: 8,  carbs: 18, fat: 5,  fiber: 2 },
+  "sambar":               { calories: 97,  protein: 4,  carbs: 15, fat: 2,  fiber: 3 },
+  "lentil stew":          { calories: 97,  protein: 4,  carbs: 15, fat: 2,  fiber: 3 },
+  "chutney":              { calories: 266, protein: 4,  carbs: 10, fat: 22, fiber: 4 },
 };
 
 const getHardcodedFallback = (foodName) => {
@@ -182,12 +185,13 @@ const getNutritionalData = async (fatSecretToken, foodName) => {
     if (result) console.log(`  🇮🇳 Anuvaad match: "${foodName}" → "${result.name}"`);
   }
 
-  // 2. Global fallbacks
+  // 2. Local Fallbacks (prevent external API hallucination like USDA turning 'lentil stew' into 'chicken')
+  if (!result) result = getHardcodedFallback(foodName);
+
+  // 3. Global external APIs
   if (!result && fatSecretToken) result = validateNutrition(await fetchFatSecret(fatSecretToken, foodName));
   if (!result) result = validateNutrition(await fetchUSDA(foodName));
   if (!result) result = validateNutrition(await fetchOpenFoodFacts(foodName));
-  // Final fallback: hardcoded reliable values
-  if (!result) result = getHardcodedFallback(foodName);
 
   if (result) setCachedNutrition(foodName, result);
   return result;
@@ -216,12 +220,13 @@ Return ONLY a raw JSON object with this exact structure:
 For ingredients — STRICT RULES:
 1. STRICT ANTI-HALLUCINATION: List ONLY what is physically, visibly present in the photograph.
 2. DO NOT infer accompanying side dishes. If the photo is of a dish that is typically served with sides (e.g. Biryani with Raita, Dosa with Chutney), DO NOT list the sides unless they are explicitly visible in the frame.
-3. DO NOT list micro-ingredients like spices, seeds (e.g. mustard seeds), herbs (e.g. curry leaves), or garnishes (e.g. chopped onions, green chilis). They have negligible calories and will confuse the nutritional database.
-4. For a pizza: list the CRUST, SAUCE, and visible TOPPINGS — NOT flour, yeast, water.
-5. For a curry/stew: list the MAIN visible components (e.g. the meat, the vegetables, and the sauce) — NOT the spices.
-6. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce").
-7. Maximum 6 ingredients. Focus ONLY on the major caloric components.
-8. Do NOT list cooking methods as ingredients.`;
+3. STRICTLY OBSERVE MEAT/VEG DISTINCTIONS: If a dish is traditionally vegetarian (e.g. plain Dosa, Idli, Paneer), DO NOT hallucinate or list meat (like chicken or beef) unless it is clearly visible.
+4. DO NOT list micro-ingredients like spices, seeds (e.g. mustard seeds), herbs (e.g. curry leaves), or garnishes (e.g. chopped onions, green chilis). They have negligible calories and will confuse the nutritional database.
+5. For a pizza: list the CRUST, SAUCE, and visible TOPPINGS — NOT flour, yeast, water.
+6. For a curry/stew: list the MAIN visible components (e.g. the meat, the vegetables, and the sauce) — NOT the spices.
+7. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce").
+8. Maximum 6 ingredients. Focus ONLY on the major caloric components.
+9. Do NOT list cooking methods as ingredients.`;
 };
 
 const parseVisionResponse = (text) => {
@@ -424,9 +429,10 @@ const calculateConfidence = (originalName, resolvedName, yoloConf = null) => {
   const union = new Set([...origWords, ...resWords]).size;
   const nameMatch = union > 0 ? intersection / union : 0;
 
+  // We boost the base confidence so exact matches hit > 85% automatically
   const score = yoloConf !== null
-    ? yoloConf * 0.5 + nameMatch * 0.3 + 0.2   // YOLO 50% + name 30% + base 20%
-    : nameMatch * 0.5 + 0.5;                     // name 50% + base 50% (Gemini only)
+    ? yoloConf * 0.4 + nameMatch * 0.4 + 0.2
+    : nameMatch * 0.3 + 0.65; // Base 65% + 30% for exact name match = 95%
 
   return parseFloat(Math.min(0.99, score).toFixed(2));
 };
@@ -447,14 +453,16 @@ const getTypicalPortionWeight = (foodName, originalName = "") => {
     if (/\b(salt|sugar|honey)\b/.test(k)) return 5;
     if (/\b(oil|olive|butter|ghee)\b/.test(k)) return 15;
     if (/\b(onion|garlic|ginger|lemon|lime|scallion|jalapeno)\b/.test(k)) return 20; // garnish/aromatics
-    if (/\b(sauce|gravy|dressing|ketchup|mayo|mustard|soy sauce|vinegar|chutney|dip)\b/.test(k)) return 30;
+    if (/\b(chutney|dip|pickle)\b/.test(k)) return 40; // Full bowl of chutney
+    if (/\b(sauce|gravy|dressing|ketchup|mayo|mustard|soy sauce|vinegar)\b/.test(k)) return 30;
     if (/\b(cream cheese|cream|yogurt|curd|raita|sour cream)\b/.test(k)) return 40;
     if (/\b(cheese)\b/.test(k)) return 40;
-    if (/\b(bun|roll|pav|slider|biscuit)\b/.test(k)) return 60; // small breads
+    if (/\b(bun|roll|pav|slider|biscuit|idli)\b/.test(k)) return 60; // small breads/idli
     if (/\b(egg)\b/.test(k)) return 60;
     if (/\b(nut|almond|cashew|walnut|peanut|seed)\b/.test(k)) return 20;
     if (/\b(soup|broth|dal|stew|curry)\b/.test(k)) return 200;
     if (/\b(chicken|beef|fish|pork|lamb|meat|steak|salmon|tuna|shrimp|prawn|tofu|paneer)\b/.test(k)) return 150;
+    if (/\b(dosa|crepe|pancake|waffle)\b/.test(k)) return 120; // Full-sized dosa
     // Grains/doughs — pizza dough, bread dough, etc.
     if (/\b(rice|pasta|noodle|bread|roti|naan|tortilla|oats|quinoa|dough|pizza base|crust)\b/.test(k)) return 100;
     if (/\b(potato|sweet potato|mash)\b/.test(k)) return 100;
@@ -628,8 +636,8 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealT
     // Define if item is a garnish/condiment that should be strictly capped
     const isGarnish = /\b(herb|spice|salt|sugar|oil|butter|ghee|lemon|lime|onion|garlic|ginger|sauce|dressing|mayo)\b/.test(name);
     
-    // Garnishes strictly capped at 1.5x typical. Main items can scale up to 4.5x typical.
-    const maxMultiplier = isGarnish ? 1.5 : 4.5;
+    // Garnishes strictly capped at 1.5x typical. Main items can scale up to 15.0x typical.
+    const maxMultiplier = isGarnish ? 1.5 : 15.0;
     const cap = tw * maxMultiplier; 
     
     return Math.min(raw, cap);

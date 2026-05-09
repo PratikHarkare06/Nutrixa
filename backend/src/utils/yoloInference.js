@@ -149,9 +149,9 @@ const runYoloInference = async (imagePath) => {
       }
     }
 
-    const detectedIngredients = Object.entries(classConfidenceMap).map(
-      ([name, confidence]) => ({ name, confidence })
-    );
+    const detectedIngredients = Object.entries(classConfidenceMap)
+      .filter(([name, confidence]) => confidence >= 0.85)
+      .map(([name, confidence]) => ({ name, confidence }));
 
     return {
       ratio,

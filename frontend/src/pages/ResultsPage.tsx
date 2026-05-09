@@ -420,7 +420,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                                       setEditingFoodName(food.name);
                                       setCorrectedFoodValue(food.name);
                                     }}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-textMuted border border-panelBorder rounded px-1.5 py-0.5 hover:text-primary hover:border-primary"
+                                    className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded px-2 py-0.5 hover:bg-primary hover:text-white transition-colors"
                                     title="Correct this ingredient"
                                   >
                                     ✎ Edit
@@ -638,6 +638,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                   </div>
                 </section>
               </div>
+            </div>
             </>
           )}
         </div>
