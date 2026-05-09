@@ -34,6 +34,16 @@ export const fetchHistoryRequest = async ({
   return response.data;
 };
 
+export const fetchDailyWaterRequest = async (): Promise<{ success: boolean; data: { date: string; water_intake_ml: number } }> => {
+  const response = await historyApi.get("/history/water");
+  return response.data;
+};
+
+export const addWaterRequest = async (amount_ml: number): Promise<{ success: boolean; data: { date: string; water_intake_ml: number } }> => {
+  const response = await historyApi.post("/history/water", { amount_ml });
+  return response.data;
+};
+
 export const getHistoryErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

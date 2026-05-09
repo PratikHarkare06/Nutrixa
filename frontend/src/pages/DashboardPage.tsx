@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { UploadCard } from "../components/UploadCard";
+import { HydrationWidget } from "../components/HydrationWidget";
 import { useUploadStore } from "../store/uploadStore";
 import { fetchProfileRequest, suggestMealsRequest } from "../services/profileApi";
 import { fetchHistoryRequest } from "../services/historyApi";
@@ -177,8 +178,10 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
           ))}
         </div>
 
-        {/* Daily Progress Widget */}
-        <div className="mb-8 p-6 rounded-2xl border border-panelBorder bg-panel shadow-sm">
+        {/* Daily Widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Daily Progress Widget */}
+          <div className="p-6 rounded-2xl border border-panelBorder bg-panel shadow-sm flex flex-col h-full">
           <div className="flex justify-between items-end mb-3">
             <div>
               <h2 className="text-lg font-bold text-textMain">Today's Progress</h2>
@@ -231,6 +234,12 @@ export const DashboardPage = ({ onUploadSuccess }: DashboardPageProps) => {
             )}
           </div>
         </div>
+
+        {/* Hydration Widget */}
+        <div className="h-full">
+          <HydrationWidget />
+        </div>
+      </div>
 
         <div className="mb-16">
           <UploadCard

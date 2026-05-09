@@ -1,5 +1,6 @@
 const { createAppError } = require("../utils/createAppError");
 const { FoodEntry, mapFoodEntryToAnalysis } = require("../models/FoodEntry");
+const { DailyWater } = require("../models/DailyWater");
 
 const getHistory = async (req, res, next) => {
   try {
@@ -38,5 +39,47 @@ const getHistory = async (req, res, next) => {
     next(createAppError(500, "FETCH_FAILED", "Failed to fetch history."));
   }
 };
+const getDailyWater = async (req, res, next) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const entry = await DailyWater.findOne({ date: today }).lean();
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        date: today,
+        water_intake_ml: entry ? entry.water_intake_ml : 0
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-module.exports = { getHistory };
+const addWater = async (req, res, next) => {
+  try {
+    const { amount_ml } = req.body;
+    if (!amount_ml || typeof amount_ml !== "number") {
+      return next(createAppError(400, "INVALID_DATA", "Amount in ml is required."));
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const entry = await DailyWater.findOneAndUpdate(
+      { date: today },
+      { $inc: { water_intake_ml: amount_ml } },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        date: today,
+        water_intake_ml: entry.water_intake_ml
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getHistory, getDailyWater, addWater };

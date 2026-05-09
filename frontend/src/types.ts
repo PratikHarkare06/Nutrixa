@@ -107,7 +107,13 @@ export type UserProfile = {
   maintenanceCalories?: number;
   weightLossCalories?: number;
   weightGainCalories?: number;
+  waterGoalMl?: number;
   updatedAt: string;
+};
+
+export type DailyWater = {
+  date: string;
+  water_intake_ml: number;
 };
 
 export type HistoryPagination = {

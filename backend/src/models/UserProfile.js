@@ -98,6 +98,10 @@ const userProfileSchema = new mongoose.Schema(
       type: Object, // Will store the JSON structure of the 7-day plan
       default: null,
     },
+    water_goal_ml: {
+      type: Number,
+      default: 2500,
+    },
   },
   {
     collection: "users",
@@ -125,6 +129,7 @@ const defaultUserProfile = {
   id: "default-profile",
   updatedAt: new Date(0).toISOString(),
   weight: 62,
+  waterGoalMl: 2500,
 };
 
 const calculateBMIAndCalories = (weight, heightCm, age, gender, activityLevel) => {
@@ -183,6 +188,7 @@ const mapUserProfileToResponse = (profile) => {
     id: profile._id.toString(),
     updatedAt: profile.updated_at,
     weight: profile.weight_kg,
+    waterGoalMl: profile.water_goal_ml || 2500,
     ...metrics,
   };
 };
