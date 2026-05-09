@@ -125,6 +125,17 @@ export type ProgressLog = {
   created_at: string;
 };
 
+export type GroceryItem = {
+  name: string;
+  amount: string;
+  checked: boolean;
+};
+
+export type GroceryCategory = {
+  category: string;
+  items: GroceryItem[];
+};
+
 export type HistoryPagination = {
   limit: number;
   page: number;

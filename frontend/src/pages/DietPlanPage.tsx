@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchProfileRequest, generateDietPlanRequest } from "../services/profileApi";
+import { fetchProfileRequest, generateDietPlanRequest, generateGroceryListRequest } from "../services/profileApi";
 import type { UserProfile, DailyDietPlan } from "../types";
 import { SparklesIcon, CalendarIcon, BoltIcon, FireIcon, ProteinIcon } from "../components/icons";
+import { GroceryListModal } from "../components/GroceryListModal";
 
 export const DietPlanPage = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -9,6 +10,9 @@ export const DietPlanPage = () => {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>("Monday");
+  const [groceryList, setGroceryList] = useState<any[]>([]);
+  const [isGroceryLoading, setIsGroceryLoading] = useState(false);
+  const [isGroceryOpen, setIsGroceryOpen] = useState(false);
 
   const loadProfile = async () => {
     try {
@@ -38,6 +42,20 @@ export const DietPlanPage = () => {
       setError(err?.response?.data?.error?.message || "Failed to generate diet plan.");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleGenerateGrocery = async () => {
+    setIsGroceryLoading(true);
+    setError(null);
+    try {
+      const res = await generateGroceryListRequest();
+      setGroceryList(res.data);
+      setIsGroceryOpen(true);
+    } catch (err: any) {
+      setError(err?.response?.data?.error?.message || "Failed to generate grocery list.");
+    } finally {
+      setIsGroceryLoading(false);
     }
   };
 
@@ -73,18 +91,32 @@ export const DietPlanPage = () => {
           </p>
         </div>
         {profile?.dietPlan && (
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="flex items-center gap-2 px-4 py-2 bg-panel border border-panelBorder rounded-lg text-sm font-medium text-textMain hover:border-primary transition-colors disabled:opacity-50"
-          >
-            {generating ? (
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-            ) : (
-              <SparklesIcon className="w-4 h-4 text-primary" />
-            )}
-            Regenerate Plan
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGenerateGrocery}
+              disabled={isGroceryLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
+            >
+              {isGroceryLoading ? (
+                <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+              ) : (
+                <span className="text-lg leading-none">🛒</span>
+              )}
+              Grocery List
+            </button>
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex items-center gap-2 px-4 py-2 bg-panel border border-panelBorder rounded-lg text-sm font-medium text-textMain hover:border-primary transition-colors disabled:opacity-50"
+            >
+              {generating ? (
+                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+              ) : (
+                <SparklesIcon className="w-4 h-4 text-primary" />
+              )}
+              Regenerate Plan
+            </button>
+          </div>
         )}
       </div>
 
@@ -218,6 +250,12 @@ export const DietPlanPage = () => {
           )}
         </>
       )}
+
+      <GroceryListModal 
+        isOpen={isGroceryOpen} 
+        onClose={() => setIsGroceryOpen(false)} 
+        list={groceryList} 
+      />
     </div>
   );
 };

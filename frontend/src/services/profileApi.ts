@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import type { ApiErrorResponse, ProfileSuccessResponse, UserProfile, ProgressLog } from "../types";
+import type { ApiErrorResponse, ProfileSuccessResponse, UserProfile, ProgressLog, GroceryCategory } from "../types";
 
 const profileApi = axios.create({
   baseURL: "http://localhost:5001/api",
@@ -57,6 +57,11 @@ export const generateDietPlanRequest = async (signal?: AbortSignal) => {
 
 export const fetchProgressLogsRequest = async (): Promise<{ success: boolean; data: ProgressLog[] }> => {
   const response = await profileApi.get("/profile/progress");
+  return response.data;
+};
+
+export const generateGroceryListRequest = async (signal?: AbortSignal): Promise<{ success: boolean; data: GroceryCategory[] }> => {
+  const response = await profileApi.post("/profile/grocery-list", {}, { signal });
   return response.data;
 };
 

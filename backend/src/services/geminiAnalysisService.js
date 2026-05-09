@@ -222,4 +222,49 @@ Do not return any markdown formatting outside of the JSON.`;
   }
 };
 
-module.exports = { analyzeFoodImageWithGemini, getMealSuggestions, generatePersonalizedDietPlan, analyzePantryWithGemini };
+const generateGroceryList = async (dietPlan) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const prompt = `You are a highly organized culinary assistant. I am providing a 7-day diet plan in JSON format.
+Your task is to extract all the required raw ingredients to cook these meals and group them into a structured grocery shopping list.
+Deduplicate similar items and combine quantities where logical (e.g., "Onions - 5 large", "Chicken Breast - 1.5kg").
+
+Diet Plan:
+${JSON.stringify(dietPlan, null, 2)}
+
+Return ONLY a valid JSON array of category objects matching this exact schema:
+[
+  {
+    "category": "Produce",
+    "items": [
+      { "name": "Onions", "amount": "5 large", "checked": false },
+      { "name": "Spinach", "amount": "2 bunches", "checked": false }
+    ]
+  },
+  {
+    "category": "Meat & Seafood",
+    "items": [
+      { "name": "Chicken Breast", "amount": "1.5 kg", "checked": false }
+    ]
+  }
+]
+Standard categories should include: Produce, Meat & Seafood, Dairy & Eggs, Pantry Staples, Spices, Bakery.
+Do not return any markdown formatting outside of the JSON.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [prompt],
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Gemini Grocery List Error:", error);
+    throw new Error("Failed to generate grocery list.");
+  }
+};
+
+module.exports = { analyzeFoodImageWithGemini, getMealSuggestions, generatePersonalizedDietPlan, analyzePantryWithGemini, generateGroceryList };

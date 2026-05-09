@@ -1,5 +1,5 @@
 const express = require("express");
-const { getProfile, saveProfile, suggestMeals, generateDietPlan, getProgressLogs, addProgressLog } = require("../controllers/profileController");
+const { getProfile, saveProfile, suggestMeals, generateDietPlan, getProgressLogs, addProgressLog, generateGroceryList } = require("../controllers/profileController");
 const { uploadImage: uploadImageMiddleware } = require("../config/multer");
 
 const router = express.Router();
@@ -10,5 +10,6 @@ router.post("/suggest", suggestMeals);
 router.post("/diet-plan", generateDietPlan);
 router.get("/progress", getProgressLogs);
 router.post("/progress", uploadImageMiddleware, addProgressLog);
+router.post("/grocery-list", generateGroceryList);
 
 module.exports = router;

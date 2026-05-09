@@ -214,4 +214,21 @@ const addProgressLog = async (req, res, next) => {
   }
 };
 
-module.exports = { getProfile, saveProfile, suggestMeals, generateDietPlan, getProgressLogs, addProgressLog };
+const generateGroceryListHandler = async (req, res, next) => {
+  try {
+    const profile = await UserProfile.findOne(profileFilter).lean();
+    if (!profile || !profile.diet_plan) {
+      return next(createAppError(400, "NO_DIET_PLAN", "Please generate a Diet Plan first."));
+    }
+
+    const { generateGroceryList } = require("../services/geminiAnalysisService");
+    const groceryList = await generateGroceryList(profile.diet_plan);
+
+    res.status(200).json({ success: true, data: groceryList });
+  } catch (error) {
+    console.error(error);
+    next(createAppError(500, "GENERATE_FAILED", "Failed to generate grocery list."));
+  }
+};
+
+module.exports = { getProfile, saveProfile, suggestMeals, generateDietPlan, getProgressLogs, addProgressLog, generateGroceryList: generateGroceryListHandler };
