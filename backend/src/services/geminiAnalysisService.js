@@ -160,4 +160,66 @@ Ensure the daily macros closely sum up to the Target Daily Calories. Make the me
   }
 };
 
-module.exports = { analyzeFoodImageWithGemini, getMealSuggestions, generatePersonalizedDietPlan };
+const analyzePantryWithGemini = async (imagePath, mimeType, profile) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+  const imageBuffer = fs.readFileSync(imagePath);
+  const base64Image = imageBuffer.toString("base64");
+
+  const restrictions = profile?.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
+  const allergies = profile?.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
+  const dietMode = profile?.diet_mode || "Balanced";
+
+  const prompt = `You are a world-class Indian nutritionist and master chef.
+Analyze this image of a fridge or pantry. Identify all the usable raw ingredients you can see.
+Then, generate 3 healthy, appetizing recipes that the user can cook using PRIMARILY these ingredients (you may assume basic staples like oil, salt, pepper, and common Indian spices are available).
+
+The user's profile:
+- Diet Mode: ${dietMode}
+- Dietary Restrictions: ${restrictions}
+- Allergies: ${allergies}
+
+All 3 recipes MUST strictly adhere to the Diet Mode and Allergies. Do not suggest anything that violates these rules.
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "identifiedIngredients": ["Tomato", "Onion", "Eggs", "Spinach"],
+  "recipes": [
+    {
+      "name": "Spinach & Tomato Masala Omelette",
+      "description": "A protein-packed spiced omelette using fresh spinach and tomatoes.",
+      "prepTime": "15 mins",
+      "calories": 250,
+      "protein": 18,
+      "carbs": 5,
+      "fat": 15,
+      "ingredients": ["3 Eggs", "1/2 cup chopped Spinach", "1 small Tomato, diced", "Pinch of turmeric and chili powder"],
+      "instructions": ["Beat the eggs with spices.", "Sauté onions and tomatoes until soft.", "Add spinach and cook until wilted.", "Pour in eggs and cook until set."]
+    }
+  ]
+}
+Do not return any markdown formatting outside of the JSON.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        prompt,
+        {
+          inlineData: {
+            data: base64Image,
+            mimeType: mimeType,
+          },
+        },
+      ],
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Gemini Pantry Error:", error);
+    throw new Error("Failed to analyze pantry image.");
+  }
+};
+
+module.exports = { analyzeFoodImageWithGemini, getMealSuggestions, generatePersonalizedDietPlan, analyzePantryWithGemini };

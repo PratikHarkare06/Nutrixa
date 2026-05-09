@@ -53,6 +53,23 @@ export const scanBarcodeRequest = async (barcode: string) => {
   return response.data;
 };
 
+export const uploadPantryImageRequest = async (
+  file: File,
+  signal?: AbortSignal,
+) => {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await api.post("/upload/pantry", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    signal,
+  });
+
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

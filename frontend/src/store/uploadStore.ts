@@ -1,20 +1,23 @@
 import { create } from "zustand";
-import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest } from "../services/uploadApi";
-import type { UploadAnalysis } from "../types";
+import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest } from "../services/uploadApi";
+import type { UploadAnalysis, PantryAnalysis } from "../types";
 
 type UploadState = {
   analysis: UploadAnalysis | null;
+  pantryAnalysis: PantryAnalysis | null;
   dragActive: boolean;
   errorMessage: string;
   isUploading: boolean;
   progressMessage: string;
   controller: AbortController | null;
   setAnalysis: (analysis: UploadAnalysis | null) => void;
+  setPantryAnalysis: (analysis: PantryAnalysis | null) => void;
   setDragActive: (dragActive: boolean) => void;
   clearError: () => void;
   cancelUpload: () => void;
   uploadImage: (file: File | null, mealType?: string) => Promise<boolean>;
   scanBarcode: (barcode: string) => Promise<boolean>;
+  uploadPantryImage: (file: File | null) => Promise<boolean>;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -38,12 +41,14 @@ const getClientValidationMessage = (file: File | null): string => {
 
 export const useUploadStore = create<UploadState>((set, get) => ({
   analysis: null,
+  pantryAnalysis: null,
   dragActive: false,
   errorMessage: "",
   isUploading: false,
   progressMessage: "",
   controller: null,
   setAnalysis: (analysis) => set({ analysis }),
+  setPantryAnalysis: (pantryAnalysis) => set({ pantryAnalysis }),
   setDragActive: (dragActive) => set({ dragActive }),
   clearError: () => set({ errorMessage: "", progressMessage: "" }),
   cancelUpload: () => {
@@ -137,6 +142,50 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       return true;
     } catch (error) {
       set({
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
+      return false;
+    }
+  },
+  uploadPantryImage: async (file) => {
+    const validationMessage = getClientValidationMessage(file);
+
+    if (validationMessage) {
+      set({ errorMessage: validationMessage });
+      return false;
+    }
+
+    if (!file) {
+      set({ errorMessage: "Please choose an image to upload." });
+      return false;
+    }
+
+    const controller = new AbortController();
+
+    set({
+      controller,
+      errorMessage: "",
+      progressMessage: "Analyzing pantry ingredients...",
+      isUploading: true,
+    });
+
+    try {
+      const response = await uploadPantryImageRequest(file, controller.signal);
+
+      set({
+        pantryAnalysis: response.data,
+        controller: null,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+
+      return true;
+    } catch (error) {
+      set({
+        controller: null,
         errorMessage: getUploadErrorMessage(error),
         progressMessage: "",
         isUploading: false,

@@ -42,6 +42,23 @@ export type UploadAnalysis = {
   volumeSource?: "midas" | "density";
 };
 
+export type PantryRecipe = {
+  name: string;
+  description: string;
+  prepTime: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  ingredients: string[];
+  instructions: string[];
+};
+
+export type PantryAnalysis = {
+  identifiedIngredients: string[];
+  recipes: PantryRecipe[];
+};
+
 export type MealPlan = {
   type: string;
   name: string;
