@@ -1,4 +1,4 @@
-import { ChartBarsIcon, HistoryIcon, InsightsSparkIcon, LogoIcon, ProfileIcon, SquareIcon, CalendarIcon, SparklesIcon } from "./icons";
+import { ChartBarsIcon, HistoryIcon, InsightsSparkIcon, LogoIcon, ProfileIcon, SquareIcon, CalendarIcon, SparklesIcon, BoltIcon } from "./icons";
 
 type AppHeaderProps = {
   currentPath: string;
@@ -9,6 +9,7 @@ const navItems = [
   { name: "Dashboard", path: "/", icon: SquareIcon },
   { name: "Diet Plan", path: "/diet-plan", icon: CalendarIcon },
   { name: "Pantry Chef", path: "/pantry", icon: SparklesIcon },
+  { name: "Workouts", path: "/workouts", icon: BoltIcon },
   { name: "Results", path: "/results", icon: ChartBarsIcon },
   { name: "History", path: "/history", icon: HistoryIcon },
   { name: "Insights", path: "/insights", icon: InsightsSparkIcon },

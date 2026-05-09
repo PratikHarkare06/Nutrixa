@@ -89,6 +89,7 @@ export type UserProfile = {
   weight: number;
   dietMode?: string;
   dietPlan?: DailyDietPlan[];
+  workoutPlan?: DailyWorkoutPlan[];
   dietaryRestrictions: string[];
   foodAllergies: string[];
   healthGoals?: string[];
@@ -134,6 +135,22 @@ export type GroceryItem = {
 export type GroceryCategory = {
   category: string;
   items: GroceryItem[];
+};
+
+export type Exercise = {
+  name: string;
+  sets: number;
+  reps: string;
+  restSecs: number;
+  notes: string;
+};
+
+export type DailyWorkoutPlan = {
+  day: string;
+  focus: string;
+  durationMins: number;
+  isRestDay: boolean;
+  exercises: Exercise[];
 };
 
 export type HistoryPagination = {

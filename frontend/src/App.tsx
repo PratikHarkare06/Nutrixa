@@ -7,6 +7,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { ResultsPage } from "./pages/ResultsPage";
 import { DietPlanPage } from "./pages/DietPlanPage";
 import { PantryPage } from "./pages/PantryPage";
+import { WorkoutPage } from "./pages/WorkoutPage";
 
 const getPathname = () => window.location.pathname || "/";
 
@@ -41,6 +42,8 @@ function App() {
           <DietPlanPage />
         ) : pathname === "/pantry" ? (
           <PantryPage />
+        ) : pathname === "/workouts" ? (
+          <WorkoutPage />
         ) : (
           <DashboardPage onUploadSuccess={() => navigate("/results")} />
         )}
