@@ -163,6 +163,163 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
   const navItems = getNavItems(currentPath);
   const brandName = currentPath === "/" ? "Lumina Health" : "NutriTrack";
 
+  const handleViewPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to view the PDF report.");
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Weekly Health Report - NutriTrack</title>
+          <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+          <style>
+            body {
+              font-family: 'DM Sans', sans-serif;
+              color: #2C2C2C;
+              background-color: #FFFFFF;
+              margin: 0;
+              padding: 40px;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #E2E4DC;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .logo {
+              font-size: 24px;
+              font-weight: bold;
+              color: #7A9E7E;
+            }
+            .title {
+              font-size: 28px;
+              font-weight: bold;
+              margin: 0;
+            }
+            .date {
+              color: #888888;
+              font-size: 14px;
+              margin-top: 5px;
+            }
+            .section {
+              margin-bottom: 30px;
+            }
+            .section-title {
+              font-size: 18px;
+              font-weight: bold;
+              border-left: 4px solid #7A9E7E;
+              padding-left: 10px;
+              margin-bottom: 15px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .grid {
+              display: grid;
+              grid-template-cols: repeat(2, 1fr);
+              gap: 20px;
+            }
+            .card {
+              border: 1px solid #E2E4DC;
+              border-radius: 12px;
+              padding: 15px;
+              background-color: #F6F8F3;
+            }
+            .card-title {
+              font-size: 12px;
+              color: #888888;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .card-value {
+              font-size: 22px;
+              font-weight: bold;
+              color: #2C2C2C;
+              margin-top: 5px;
+            }
+            .tips-list {
+              padding-left: 20px;
+              line-height: 1.6;
+              font-size: 14px;
+            }
+            .footer {
+              margin-top: 50px;
+              text-align: center;
+              font-size: 12px;
+              color: #888888;
+              border-top: 1px solid #E2E4DC;
+              padding-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">Weekly Metabolic Insights</h1>
+              <div class="date">Report generated on ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+            </div>
+            <div class="logo">NutriTrack</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Metabolic Progress</div>
+            <p style="font-size: 15px; line-height: 1.6;">
+              Excellent work! Your overall metabolic score has improved by <strong>12%</strong> compared to the previous week. This is driven by your consistent hydration, high protein intake, and structured activity tracking.
+            </p>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Key Performance Indicators</div>
+            <div class="grid">
+              <div class="card">
+                <div class="card-title">Daily Calorie Average</div>
+                <div class="card-value">1,735 kcal</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Protein Consistency</div>
+                <div class="card-value">85% of goal</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Water Target Progress</div>
+                <div class="card-value">2.2L / Day</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Weekly Active Time</div>
+                <div class="card-value">5.4 hours</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Clinical Recommendations</div>
+            <ul class="tips-list">
+              <li>Keep pairing high-fiber grains with raw avocados to maximize fat-soluble vitamin absorption.</li>
+              <li>Maintain daily post-workout hydration above 500ml to optimize metabolic recovery cycles.</li>
+              <li>Incorporate at least two active recovery days (stretching or walking) during muscle strain phases.</li>
+            </ul>
+          </div>
+
+          <div class="footer">
+            NutriTrack Analytics • Private & Confidential Personal Health Record
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const renderSidebarWidget = () => {
     switch (currentPath) {
       case "/":
@@ -197,7 +354,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
             <span className="text-xs font-bold text-[#2C3E2B] mb-1">Weekly Report</span>
             <p className="text-xs text-textMuted mb-3 leading-relaxed">Your metabolic health improved by 12% this week.</p>
             <button
-              onClick={() => alert("Downloading PDF Report...")}
+              onClick={handleViewPDF}
               className="w-full py-2 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
             >
               View PDF
