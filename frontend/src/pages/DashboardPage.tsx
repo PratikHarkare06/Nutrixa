@@ -252,25 +252,72 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
         {/* Right Column (Daily Progress, Calorie Trends, Yoga Card) */}
         <div className="space-y-8">
           
-          {/* Daily Progress (No card wrapper, title directly on bg, flat subcards) */}
+          {/* Daily Progress */}
           <div className="space-y-4 animate-slide-up">
-            <h2 className="text-base font-bold text-textHeading uppercase tracking-wider">Daily Progress</h2>
+            <h2 className="text-xs font-bold text-textHeading uppercase tracking-wider">Daily Progress</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-xs text-textMuted font-medium mb-1">Steps</div>
-                <div className="text-xl font-extrabold text-textHeading">8,432 <span className="text-xs text-textMuted font-medium">steps</span></div>
+              {/* Steps Card */}
+              <div className="bg-white border border-[#7A9E7E]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,126,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,126,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-xs text-textMuted font-semibold">Steps</span>
+                  <span className="w-7 h-7 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] flex items-center justify-center text-xs">
+                    👣
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-textHeading">8,432 <span className="text-xs text-textMuted font-medium">steps</span></div>
+                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
+                    <div className="bg-[#7A9E7E] h-full rounded-full" style={{ width: "84%" }} />
+                  </div>
+                </div>
               </div>
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-xs text-textMuted font-medium mb-1">Calories</div>
-                <div className="text-xl font-extrabold text-textHeading">1,240 <span className="text-xs text-textMuted font-medium">kcal</span></div>
+
+              {/* Calories Card */}
+              <div className="bg-white border border-[#E8815A]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(232,129,90,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(232,129,90,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-xs text-textMuted font-semibold">Calories</span>
+                  <span className="w-7 h-7 rounded-full bg-[#FEF0EB] border border-[#FEE2D5] flex items-center justify-center text-xs">
+                    🔥
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-textHeading">1,240 <span className="text-xs text-textMuted font-medium">kcal</span></div>
+                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
+                    <div className="bg-[#E8815A] h-full rounded-full" style={{ width: "62%" }} />
+                  </div>
+                </div>
               </div>
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-xs text-textMuted font-medium mb-1">Sleep</div>
-                <div className="text-xl font-extrabold text-textHeading">7.5 <span className="text-xs text-textMuted font-medium">hrs</span></div>
+
+              {/* Sleep Card */}
+              <div className="bg-white border border-[#7A9EBE]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,190,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,190,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-xs text-textMuted font-semibold">Sleep</span>
+                  <span className="w-7 h-7 rounded-full bg-[#EBF2F8] border border-blueLight flex items-center justify-center text-xs">
+                    🌙
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-textHeading">7.5 <span className="text-xs text-textMuted font-medium">hrs</span></div>
+                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
+                    <div className="bg-[#7A9EBE] h-full rounded-full" style={{ width: "93%" }} />
+                  </div>
+                </div>
               </div>
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-xs text-textMuted font-medium mb-1">Active</div>
-                <div className="text-xl font-extrabold text-textHeading">45 <span className="text-xs text-textMuted font-medium">min</span></div>
+
+              {/* Active Card */}
+              <div className="bg-white border border-[#D4A847]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(212,168,71,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(212,168,71,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-xs text-textMuted font-semibold">Active</span>
+                  <span className="w-7 h-7 rounded-full bg-[#FEF9EB] border border-[#FDF0CD] flex items-center justify-center text-xs">
+                    ⚡
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-textHeading">45 <span className="text-xs text-textMuted font-medium">min</span></div>
+                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
+                    <div className="bg-[#D4A847] h-full rounded-full" style={{ width: "75%" }} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
