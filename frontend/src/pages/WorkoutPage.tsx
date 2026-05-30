@@ -426,21 +426,68 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
             <h3 className="font-bold text-textHeading text-sm uppercase tracking-wider">Activity Summary</h3>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-[10px] text-textMuted font-bold uppercase mb-1">Avg Heart Rate</div>
-                <div className="text-xl font-extrabold text-textHeading">124 <span className="text-xs text-textMuted font-medium">bpm</span></div>
+              {/* Avg Heart Rate */}
+              <div className="bg-white border border-[#E38F8F]/30 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(227,143,143,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(227,143,143,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider">Avg Heart Rate</span>
+                  <span className="w-7 h-7 rounded-full bg-[#FEF0EB] border border-[#FEE2D5] flex items-center justify-center text-xs animate-pulse">
+                    💓
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-textHeading">124 <span className="text-xs text-textMuted font-medium">bpm</span></div>
+                  <span className="inline-block bg-[#FEF0EB] text-[#E8815A] text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mt-2">
+                    Fat Burn
+                  </span>
+                </div>
               </div>
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-[10px] text-textMuted font-bold uppercase mb-1">Active Time</div>
-                <div className="text-xl font-extrabold text-textHeading">3.2 <span className="text-xs text-textMuted font-medium">hrs</span></div>
+
+              {/* Active Time */}
+              <div className="bg-white border border-[#7A9E7E]/30 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,126,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,126,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider">Active Time</span>
+                  <span className="w-7 h-7 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] flex items-center justify-center text-xs">
+                    ⚡
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-textHeading">3.2 <span className="text-xs text-textMuted font-medium">hrs</span></div>
+                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-3.5">
+                    <div className="bg-[#7A9E7E] h-full rounded-full" style={{ width: "80%" }} />
+                  </div>
+                </div>
               </div>
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-[10px] text-textMuted font-bold uppercase mb-1">Volume</div>
-                <div className="text-xl font-extrabold text-textHeading">12.4k <span className="text-xs text-textMuted font-medium">kg</span></div>
+
+              {/* Volume */}
+              <div className="bg-white border border-[#D4A847]/30 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(212,168,71,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(212,168,71,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider">Volume</span>
+                  <span className="w-7 h-7 rounded-full bg-[#FEF9EB] border border-[#FEE2D5] flex items-center justify-center text-xs">
+                    🏋️‍♂️
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-textHeading">12.4k <span className="text-xs text-textMuted font-medium">kg</span></div>
+                  <span className="inline-block bg-[#FEF9EB] text-[#D4A847] text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mt-2">
+                    +12% vs last wk
+                  </span>
+                </div>
               </div>
-              <div className="bg-[#F5F6F1] rounded-2xl p-4 transition-all hover:scale-[1.02]">
-                <div className="text-[10px] text-textMuted font-bold uppercase mb-1">Recovery</div>
-                <div className="text-xl font-extrabold text-[#7A9E7E]">Good</div>
+
+              {/* Recovery */}
+              <div className="bg-white border border-[#7A9EBE]/30 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,190,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,190,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                <div className="flex justify-between items-start">
+                  <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider">Recovery</span>
+                  <span className="w-7 h-7 rounded-full bg-[#EBF2F8] border border-blueLight flex items-center justify-center text-xs">
+                    🔋
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xl font-extrabold text-[#7A9E7E]">Good</div>
+                  <span className="inline-block bg-[#EBF2F8] text-[#7A9EBE] text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mt-2">
+                    88% charged
+                  </span>
+                </div>
               </div>
             </div>
           </div>
