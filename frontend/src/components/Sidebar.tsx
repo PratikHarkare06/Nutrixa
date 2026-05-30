@@ -28,12 +28,6 @@ const getNavItems = (currentPath: string) => {
     </svg>
   );
 
-  const hydrationIcon = (
-    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth={1.8}>
-      <path d="M12 3.4C12 3.4 6.5 9.26 6.5 13.1C6.5 16.14 8.96 18.6 12 18.6C15.04 18.6 17.5 16.14 17.5 13.1C17.5 9.26 12 3.4 12 3.4Z" strokeLinecap="round" />
-    </svg>
-  );
-
   const historyIcon = (
     <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth={1.8}>
       <circle cx="12" cy="12" r="9" />
@@ -70,87 +64,16 @@ const getNavItems = (currentPath: string) => {
     </svg>
   );
 
-  if (currentPath === "/") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/insights", label: "Analytics", icon: analyticsIcon },
-      { path: "/insights", label: "Hydration", icon: hydrationIcon },
-      { path: "/history", label: "History", icon: historyIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  } else if (currentPath === "/diet-plan") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/diet-plan", label: "Diet Plan", icon: mealPlannerIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/workouts", label: "Workouts", icon: workoutsIcon },
-      { path: "/history", label: "History", icon: historyIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  } else if (currentPath === "/insights") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/insights", label: "Insights", icon: analyticsIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/history", label: "History", icon: historyIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  } else if (currentPath === "/pantry") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/insights", label: "Insights", icon: analyticsIcon },
-      { path: "/workouts", label: "Workouts", icon: workoutsIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  } else if (currentPath === "/workouts") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/insights", label: "Analytics", icon: analyticsIcon },
-      { path: "/workouts", label: "Workouts", icon: workoutsIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  } else if (currentPath === "/history") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/insights", label: "Insights", icon: analyticsIcon },
-      { path: "/history", label: "History", icon: historyIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  } else if (currentPath === "/profile") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/insights", label: "Insights", icon: analyticsIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/history", label: "History", icon: historyIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  } else if (currentPath === "/results") {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/results", label: "Results", icon: resultsIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/history", label: "History", icon: historyIcon },
-    ];
-  } else {
-    return [
-      { path: "/", label: "Overview", icon: overviewIcon },
-      { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
-      { path: "/insights", label: "Insights", icon: analyticsIcon },
-      { path: "/pantry", label: "Pantry", icon: pantryIcon },
-      { path: "/history", label: "History", icon: historyIcon },
-      { path: "/profile", label: "Profile", icon: profileIcon },
-    ];
-  }
+  return [
+    { path: "/", label: "Overview", icon: overviewIcon },
+    ...(currentPath === "/results" ? [{ path: "/results", label: "Results", icon: resultsIcon }] : []),
+    { path: "/pantry", label: "Pantry", icon: pantryIcon },
+    { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
+    { path: "/insights", label: "Insights", icon: analyticsIcon },
+    { path: "/workouts", label: "Workouts", icon: workoutsIcon },
+    { path: "/history", label: "History", icon: historyIcon },
+    { path: "/profile", label: "Profile", icon: profileIcon },
+  ];
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => {
