@@ -12,14 +12,72 @@ const mockPantryItems = [
 ];
 
 const mockRecipes = [
-  { name: "Zesty Quinoa Salad", time: "15 min", match: "90%", img: "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80" },
-  { name: "Creamy Chicken & Rice", time: "20 min", match: "85%", img: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80" },
-  { name: "Green Power Smoothie", time: "5 min", match: "100%", img: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80" },
+  {
+    name: "Zesty Quinoa Salad",
+    time: "15 min",
+    prepTime: "15 min",
+    match: "90%",
+    img: "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80",
+    description: "A refreshing, high-protein quinoa salad tossed with fresh spinach, avocado, and a light zesty dressing.",
+    calories: 380,
+    protein: 12,
+    carbs: 45,
+    fat: 18,
+    ingredients: ["Quinoa", "Avocados", "Spinach", "Olive oil", "Lemon juice", "Salt & Pepper"],
+    instructions: [
+      "Rinse and cook quinoa according to package instructions. Let cool.",
+      "Chop the spinach, avocados, and any other desired vegetables.",
+      "In a large bowl, combine the cooled quinoa, spinach, and avocados.",
+      "Drizzle with lemon juice and olive oil, then season with salt and pepper to taste.",
+      "Toss gently to combine and serve."
+    ]
+  },
+  {
+    name: "Creamy Chicken & Rice",
+    time: "20 min",
+    prepTime: "20 min",
+    match: "85%",
+    img: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80",
+    description: "A comforting dish featuring pan-seared chicken breast served over a bed of warm grains with a creamy Greek yogurt sauce.",
+    calories: 520,
+    protein: 42,
+    carbs: 35,
+    fat: 14,
+    ingredients: ["Chicken Breast", "Rice or Quinoa", "Greek Yogurt", "Garlic", "Chicken broth", "Olive oil"],
+    instructions: [
+      "Season chicken breasts with salt, pepper, and garlic powder.",
+      "Heat olive oil in a skillet and cook chicken until golden brown and cooked through.",
+      "Remove chicken and let it rest, then slice it.",
+      "In the same skillet, deglaze with chicken broth and stir in Greek yogurt over low heat.",
+      "Serve chicken over cooked quinoa or rice, drizzled with the creamy yogurt sauce."
+    ]
+  },
+  {
+    name: "Green Power Smoothie",
+    time: "5 min",
+    prepTime: "5 min",
+    match: "100%",
+    img: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80",
+    description: "A nutrient-packed green smoothie loaded with baby spinach, creamy avocado, and Greek yogurt for a healthy boost.",
+    calories: 290,
+    protein: 15,
+    carbs: 22,
+    fat: 16,
+    ingredients: ["Spinach", "Avocados", "Greek Yogurt", "Honey", "Water or Almond milk"],
+    instructions: [
+      "Place the spinach, avocado flesh, and Greek yogurt in a high-speed blender.",
+      "Add a splash of almond milk or water to help blend.",
+      "Blend on high until completely smooth and creamy.",
+      "Taste and add a touch of honey if extra sweetness is desired.",
+      "Pour into a glass and enjoy immediately."
+    ]
+  },
 ];
 
 export const PantryPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<"All" | "Fresh" | "Dry">("All");
+  const [activeRecipe, setActiveRecipe] = useState<any | null>(null);
 
   const {
     pantryAnalysis,
@@ -193,7 +251,7 @@ export const PantryPage = () => {
             <h3 className="text-base font-bold text-textHeading mb-4 uppercase tracking-wider">Top Matches</h3>
             <div className="space-y-4">
               {(pantryAnalysis ? pantryAnalysis.recipes.map((r, idx) => ({
-                name: r.name,
+                ...r,
                 time: r.prepTime,
                 match: "95%",
                 img: getMealImage(r.name)
@@ -215,7 +273,7 @@ export const PantryPage = () => {
                       <span className="text-[#10B981]">✓ {recipe.match} match</span>
                     </div>
                     <button 
-                      onClick={() => alert(`Recipe details: ${recipe.name}`)}
+                      onClick={() => setActiveRecipe(recipe)}
                       className="text-xs font-bold text-[#7A9E7E] hover:text-[#5C7A60] transition-colors mt-2.5 block text-left"
                     >
                       View Recipe
@@ -244,6 +302,131 @@ export const PantryPage = () => {
           <div className="text-xs text-textMuted mt-0.5">Est. Waste Saved</div>
         </div>
       </footer>
+
+      {/* Recipe Details Modal */}
+      {activeRecipe && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-[32px] border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col animate-slide-up">
+            {/* Hero Image */}
+            <div className="relative h-64 w-full shrink-0">
+              <img
+                src={activeRecipe.img || getMealImage(activeRecipe.name)}
+                alt={activeRecipe.name}
+                className="w-full h-full object-cover rounded-t-[32px]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent rounded-t-[32px]" />
+              <button
+                onClick={() => setActiveRecipe(null)}
+                className="absolute top-4 right-4 bg-white/90 hover:bg-white text-textHeading font-bold w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-md text-sm z-10"
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+              <div className="absolute bottom-6 left-6 right-6 text-white">
+                <span className="px-3 py-1 bg-[#7A9E7E] text-white rounded-full text-[10px] font-bold shadow-sm uppercase tracking-wide">
+                  ✓ {activeRecipe.match || "90%"} match
+                </span>
+                <h2 className="text-2xl font-bold mt-2 drop-shadow-md capitalize text-white">{activeRecipe.name}</h2>
+                <p className="text-white/90 text-xs mt-1 drop-shadow-sm font-semibold">⏱ Prep Time: {activeRecipe.prepTime || activeRecipe.time || "15 min"}</p>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 md:p-8 space-y-6 flex-1">
+              {/* Description */}
+              <div>
+                <p className="text-textMuted text-xs leading-relaxed font-medium">
+                  {activeRecipe.description || "A delicious recipe perfect for your current pantry ingredients."}
+                </p>
+              </div>
+
+              {/* Macros Breakdown */}
+              <div className="grid grid-cols-4 gap-3 bg-[#F5F6F1] p-4 rounded-2xl border border-border text-center">
+                <div>
+                  <div className="text-base font-bold text-textHeading">{activeRecipe.calories || 350}</div>
+                  <div className="text-[9px] text-textMuted font-bold uppercase tracking-wider">Calories</div>
+                </div>
+                <div>
+                  <div className="text-base font-bold text-[#E8815A]">{activeRecipe.protein || 15}g</div>
+                  <div className="text-[9px] text-textMuted font-bold uppercase tracking-wider">Protein</div>
+                </div>
+                <div>
+                  <div className="text-base font-bold text-[#D4A847]">{activeRecipe.carbs || 40}g</div>
+                  <div className="text-[9px] text-textMuted font-bold uppercase tracking-wider">Carbs</div>
+                </div>
+                <div>
+                  <div className="text-base font-bold text-[#7A9E7E]">{activeRecipe.fat || 10}g</div>
+                  <div className="text-[9px] text-textMuted font-bold uppercase tracking-wider">Fats</div>
+                </div>
+              </div>
+
+              {/* Ingredients Section */}
+              <div>
+                <h3 className="text-xs font-bold text-textHeading uppercase tracking-wider mb-3">Ingredients Needed</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {(activeRecipe.ingredients || []).map((ing: string, i: number) => {
+                    const pantryList = pantryAnalysis 
+                      ? pantryAnalysis.identifiedIngredients 
+                      : mockPantryItems.map(item => item.name);
+                    const hasIngredient = pantryList.some(p => p.toLowerCase().includes(ing.toLowerCase()) || ing.toLowerCase().includes(p.toLowerCase()));
+                    return (
+                      <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-xl border border-border/60">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          hasIngredient ? "bg-[#EBF2EB] text-[#7A9E7E]" : "bg-[#FEF0EB] text-[#E8815A]"
+                        }`}>
+                          {hasIngredient ? "✓" : "×"}
+                        </span>
+                        <span className={`text-xs ${hasIngredient ? "text-textHeading font-semibold" : "text-textMuted line-through"}`}>
+                          {ing}
+                        </span>
+                        {!hasIngredient && (
+                          <span className="ml-auto text-[8px] font-bold bg-[#FEF0EB] text-[#E8815A] px-1.5 py-0.5 rounded-md uppercase">
+                            Missing
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Instructions Section */}
+              <div>
+                <h3 className="text-xs font-bold text-textHeading uppercase tracking-wider mb-3">Step-by-step Instructions</h3>
+                <div className="space-y-3">
+                  {(activeRecipe.instructions || []).map((step: string, i: number) => (
+                    <div key={i} className="flex gap-3 items-start">
+                      <span className="w-5 h-5 rounded-full bg-[#EBF2EB] text-[#7A9E7E] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <p className="text-xs text-textHeading leading-relaxed">{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-4 flex gap-3">
+                <button
+                  onClick={() => setActiveRecipe(null)}
+                  className="flex-1 py-3 bg-[#E2E4DC] hover:bg-[#D4D6CC] text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm"
+                >
+                  Close Details
+                </button>
+                <button
+                  onClick={() => {
+                    alert("Cooking mode started! Follow the steps to prepare your meal.");
+                    setActiveRecipe(null);
+                  }}
+                  className="flex-1 py-3 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                >
+                  Start Cooking
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
