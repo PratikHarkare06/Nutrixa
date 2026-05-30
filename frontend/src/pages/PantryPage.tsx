@@ -4,11 +4,11 @@ import { useUploadStore } from "../store/uploadStore";
 
 // Mock data to match mockup screenshot
 const mockPantryItems = [
-  { name: "Avocados", details: "3 units • Added Oct 22", tag: "Fresh", color: "#EBF2EB", text: "#7A9E7E", icon: "🥑" },
-  { name: "Chicken Breast", details: "500g • Added Oct 24", tag: "Low", color: "#FEF0EB", text: "#E8815A", icon: "🍗" },
-  { name: "Quinoa", details: "1.2kg • Added Sep 15", tag: "Fresh", color: "#FEF9EB", text: "#D4A847", icon: "🌾" },
-  { name: "Greek Yogurt", details: "1 tub • Added Oct 20", tag: "Fresh", color: "#EBF2F8", text: "#7A9EBE", icon: "🥛" },
-  { name: "Spinach", details: "100g • Added Oct 25", tag: "Low", color: "#EBF2EB", text: "#7A9E7E", icon: "🥬" },
+  { name: "Avocados", details: "3 units • Added Oct 22", tag: "Fresh", category: "Fresh", color: "#EBF2EB", text: "#7A9E7E", icon: "🥑" },
+  { name: "Chicken Breast", details: "500g • Added Oct 24", tag: "Low", category: "Fresh", color: "#FEF0EB", text: "#E8815A", icon: "🍗" },
+  { name: "Quinoa", details: "1.2kg • Added Sep 15", tag: "Fresh", category: "Dry", color: "#FEF9EB", text: "#D4A847", icon: "🌾" },
+  { name: "Greek Yogurt", details: "1 tub • Added Oct 20", tag: "Fresh", category: "Fresh", color: "#EBF2F8", text: "#7A9EBE", icon: "🥛" },
+  { name: "Spinach", details: "100g • Added Oct 25", tag: "Low", category: "Fresh", color: "#EBF2EB", text: "#7A9E7E", icon: "🥬" },
 ];
 
 const mockRecipes = [
@@ -187,10 +187,13 @@ export const PantryPage = () => {
               name: ing,
               details: "Added today",
               tag: "Fresh",
+              category: getIngredientCategory(ing),
               color: "#EBF2EB",
               text: "#7A9E7E",
               icon: "🥬"
-            })) : mockPantryItems).map((item) => (
+            })) : mockPantryItems)
+            .filter((item) => filter === "All" || item.category === filter)
+            .map((item) => (
               <div 
                 key={item.name} 
                 className={`bg-white border rounded-2xl p-4 flex justify-between items-center transition-all duration-300
@@ -440,4 +443,14 @@ const getMealImage = (name: string) => {
     return "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80";
   }
   return "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80";
+};
+
+// Helper function to resolve ingredient category
+const getIngredientCategory = (name: string): "Fresh" | "Dry" => {
+  const dryKeywords = ["quinoa", "rice", "pasta", "lentil", "flour", "oat", "spice", "grain", "bean", "dry", "cereal", "powder", "seed"];
+  const lower = name.toLowerCase();
+  if (dryKeywords.some(keyword => lower.includes(keyword))) {
+    return "Dry";
+  }
+  return "Fresh";
 };
