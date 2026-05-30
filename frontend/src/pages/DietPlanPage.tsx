@@ -181,24 +181,28 @@ export const DietPlanPage = () => {
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-white border border-[#E2E4DC] hover:bg-surfaceAlt text-textHeading text-xs font-bold rounded-full transition-colors disabled:opacity-50 shadow-sm"
+            className="group flex items-center gap-2 px-6 py-2.5 bg-white border border-[#E2E4DC] hover:border-[#9DB89F]/50 text-textHeading text-xs font-bold rounded-full transition-all duration-300 disabled:opacity-50 shadow-sm hover:shadow-md hover:-translate-y-0.5"
           >
             {generating ? (
-              <div className="animate-spin h-3.5 w-3.5 border-2 border-primary border-t-transparent rounded-full" />
+              <div className="animate-spin h-3.5 w-3.5 border-2 border-[#7A9E7E] border-t-transparent rounded-full" />
             ) : (
-              <span className="text-sm">🔄</span>
+              <svg className="w-3.5 h-3.5 text-textHeading transition-transform duration-500 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
             )}
             Regenerate Plan
           </button>
           <button
             onClick={handleGenerateGrocery}
             disabled={isGroceryLoading}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
+            className="group flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#9DB89F] to-[#8FA991] hover:from-[#8FA991] hover:to-[#7A9E7E] text-white rounded-full text-xs font-bold transition-all duration-300 disabled:opacity-50 shadow-[0_4px_12px_rgba(157,184,159,0.2)] hover:shadow-[0_6px_18px_rgba(122,158,126,0.3)] hover:-translate-y-0.5"
           >
             {isGroceryLoading ? (
               <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
             ) : (
-              <span className="text-sm">🛒</span>
+              <svg className="w-3.5 h-3.5 text-white transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+              </svg>
             )}
             Grocery List
           </button>
