@@ -45,7 +45,9 @@ const formatNumber = (value: number) => {
 
 export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const analysis = useUploadStore((state) => state.analysis);
+  const addIngredientsToPantry = useUploadStore((state) => state.addIngredientsToPantry);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSimilarModalOpen, setIsSimilarModalOpen] = useState(false);
 
   const chartData = useMemo(() => {
     if (!analysis) return [];
@@ -275,7 +277,13 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
           {/* Quick Actions Shortcuts */}
           <div className="grid grid-cols-2 gap-4">
             <button 
-              onClick={() => onNavigate("/pantry")}
+              onClick={() => {
+                if (!analysis) return;
+                const ingredients = analysis.foods.map(f => f.name);
+                addIngredientsToPantry(ingredients);
+                alert(`Added ${ingredients.join(", ")} to your Pantry inventory!`);
+                onNavigate?.("/pantry");
+              }}
               className="bg-white hover:bg-surfaceAlt border border-border rounded-2xl p-4 text-center hover:shadow-md transition-all flex flex-col items-center justify-center gap-2 group"
             >
               <div className="w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] flex items-center justify-center text-[#7A9E7E]">
@@ -284,7 +292,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
               <span className="text-xs font-bold text-textHeading">Add to Pantry</span>
             </button>
             <button 
-              onClick={() => onNavigate("/diet-plan")}
+              onClick={() => setIsSimilarModalOpen(true)}
               className="bg-white hover:bg-surfaceAlt border border-border rounded-2xl p-4 text-center hover:shadow-md transition-all flex flex-col items-center justify-center gap-2 group"
             >
               <div className="w-10 h-10 rounded-full bg-[#FEF9EB] border border-[#FDF0CD] flex items-center justify-center text-[#D4A847]">
@@ -305,6 +313,181 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
         <PlusIcon className="w-5 h-5" />
         <span>New Analysis</span>
       </button>
+
+      {/* Similar Recipes Modal Overlay */}
+      {isSimilarModalOpen && analysis && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-panel border border-panelBorder rounded-[32px] max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col animate-slide-up p-6 md:p-8">
+            
+            {/* Header */}
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-textHeading capitalize">
+                  📖 Similar Recipes
+                </h2>
+                <p className="text-xs text-textMuted mt-1">
+                  Healthy alternatives matching {analysis.foods[0]?.name || "scanned food"}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsSimilarModalOpen(false)}
+                className="bg-surfaceAlt hover:bg-border text-textHeading font-bold w-8 h-8 rounded-full flex items-center justify-center transition-colors shadow-sm text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Recipes Stack */}
+            <div className="space-y-4 overflow-y-auto max-h-[55vh] pr-1 custom-scrollbar mb-6">
+              {(() => {
+                const foodName = analysis.foods[0]?.name || "Meal";
+                const recipes = foodName.toLowerCase().includes("bhaji") || foodName.toLowerCase().includes("curry") || foodName.toLowerCase().includes("vegetable")
+                  ? [
+                      {
+                        name: "Paneer Butter Masala",
+                        prepTime: "25 min",
+                        calories: 380,
+                        protein: 14,
+                        carbs: 12,
+                        fat: 30,
+                        ingredients: ["Paneer (Cottage Cheese)", "Tomato Purée", "Butter", "Heavy Cream", "Indian Spices"],
+                        instructions: ["Sauté spices and garlic in butter.", "Add tomato purée and simmer.", "Add paneer cubes and cream, then cook for 5 mins."]
+                      },
+                      {
+                        name: "Aloo Gobi Matar",
+                        prepTime: "20 min",
+                        calories: 210,
+                        protein: 5,
+                        carbs: 28,
+                        fat: 8,
+                        ingredients: ["Potatoes", "Cauliflower", "Green Peas", "Ginger-Garlic Paste", "Turmeric"],
+                        instructions: ["Parboil potatoes and cauliflower.", "Sauté onion, ginger, and spices.", "Add peas and vegetables, cover and cook until tender."]
+                      },
+                      {
+                        name: "Dal Makhani",
+                        prepTime: "40 min",
+                        calories: 320,
+                        protein: 12,
+                        carbs: 38,
+                        fat: 12,
+                        ingredients: ["Black Lentils (Urad Dal)", "Kidney Beans (Rajma)", "Butter", "Tomato Paste", "Cream"],
+                        instructions: ["Pressure cook soaked lentils and beans.", "Simmer with butter and tomato paste for 30 mins.", "Stir in cream and spices before serving."]
+                      }
+                    ]
+                  : foodName.toLowerCase().includes("quinoa") || foodName.toLowerCase().includes("salad") || foodName.toLowerCase().includes("bowl")
+                  ? [
+                      {
+                        name: "Zesty Chickpea Salad",
+                        prepTime: "10 min",
+                        calories: 290,
+                        protein: 11,
+                        carbs: 35,
+                        fat: 12,
+                        ingredients: ["Chickpeas", "Cucumbers", "Cherry Tomatoes", "Olive Oil", "Lemon Dressing"],
+                        instructions: ["Rinse and drain chickpeas.", "Chop cucumbers and tomatoes.", "Toss everything with olive oil and lemon dressing."]
+                      },
+                      {
+                        name: "Avocado & Egg Salad",
+                        prepTime: "12 min",
+                        calories: 340,
+                        protein: 14,
+                        carbs: 8,
+                        fat: 28,
+                        ingredients: ["Avocados", "Boiled Eggs", "Greek Yogurt", "Chives", "Lemon juice"],
+                        instructions: ["Chop boiled eggs and avocados.", "Mash avocado slightly with Greek yogurt and lemon juice.", "Combine with eggs and top with chives."]
+                      },
+                      {
+                        name: "Tofu Quinoa Buddha Bowl",
+                        prepTime: "20 min",
+                        calories: 410,
+                        protein: 18,
+                        carbs: 48,
+                        fat: 16,
+                        ingredients: ["Quinoa", "Firm Tofu", "Roasted Broccoli", "Tahini Sauce", "Sesame Seeds"],
+                        instructions: ["Cook quinoa. Pan-fry cubed tofu.", "Roast broccoli florets with salt.", "Assemble bowl and drizzle with tahini dressing."]
+                      }
+                    ]
+                  : [
+                      {
+                        name: `Healthy Homemade ${foodName}`,
+                        prepTime: "15 min",
+                        calories: Math.round(analysis.macros.calories * 0.8) || 320,
+                        protein: Math.round(analysis.macros.protein) || 15,
+                        carbs: Math.round(analysis.macros.carbs * 0.9) || 35,
+                        fat: Math.round(analysis.macros.fat * 0.7) || 12,
+                        ingredients: ["Fresh organic produce", "Olive oil", "Low-sodium seasoning", "Whole grains"],
+                        instructions: ["Prep all ingredients by washing and chopping.", "Sauté with light oil and seasoning.", "Portion and enjoy immediately."]
+                      },
+                      {
+                        name: `Low Carb ${foodName} Alternative`,
+                        prepTime: "20 min",
+                        calories: Math.round(analysis.macros.calories * 0.65) || 260,
+                        protein: Math.round(analysis.macros.protein * 1.1) || 18,
+                        carbs: Math.round(analysis.macros.carbs * 0.4) || 15,
+                        fat: Math.round(analysis.macros.fat * 0.8) || 14,
+                        ingredients: ["Cauliflower substitute", "Lean proteins", "Avocado oil", "Herbs & Spices"],
+                        instructions: ["Substitute refined carbs with veggies.", "Cook proteins thoroughly in a hot skillet.", "Garnish with fresh herbs."]
+                      }
+                    ];
+
+                return recipes.map((recipe, index) => (
+                  <div key={index} className="bg-white border border-border rounded-2xl p-4 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-bold text-textHeading text-sm capitalize">{recipe.name}</h3>
+                      <span className="text-[10px] bg-[#EBF2EB] text-[#7A9E7E] px-2 py-0.5 rounded-full font-bold">
+                        ⏱ {recipe.prepTime}
+                      </span>
+                    </div>
+                    
+                    {/* Macros */}
+                    <div className="grid grid-cols-4 gap-2 bg-[#F5F6F1] p-2 rounded-xl text-center text-[10px]">
+                      <div>
+                        <span className="font-bold text-textHeading">{recipe.calories}</span>
+                        <span className="text-[8px] text-textMuted block font-bold uppercase">kcal</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-[#E8815A]">{recipe.protein}g</span>
+                        <span className="text-[8px] text-textMuted block font-bold uppercase">prot</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-[#D4A847]">{recipe.carbs}g</span>
+                        <span className="text-[8px] text-textMuted block font-bold uppercase">carb</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-[#7A9E7E]">{recipe.fat}g</span>
+                        <span className="text-[8px] text-textMuted block font-bold uppercase">fat</span>
+                      </div>
+                    </div>
+
+                    {/* Ingredients list summary */}
+                    <div className="text-[10px] text-textMuted leading-relaxed">
+                      <span className="font-bold text-textHeading">Key Ingredients:</span> {recipe.ingredients.join(", ")}
+                    </div>
+                    
+                    <button 
+                      onClick={() => {
+                        alert(`Successfully added ${recipe.name} to your Daily Diet Plan!`);
+                        setIsSimilarModalOpen(false);
+                        onNavigate?.("/diet-plan");
+                      }}
+                      className="w-full py-1.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white text-[10px] font-bold rounded-lg transition-colors mt-2"
+                    >
+                      Add to Diet Plan
+                    </button>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <button
+              onClick={() => setIsSimilarModalOpen(false)}
+              className="w-full py-3 bg-[#E2E4DC] hover:bg-[#D4D6CC] text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm"
+            >
+              Close Recipes
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

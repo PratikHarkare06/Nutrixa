@@ -18,6 +18,7 @@ type UploadState = {
   uploadImage: (file: File | null, mealType?: string) => Promise<boolean>;
   scanBarcode: (barcode: string) => Promise<boolean>;
   uploadPantryImage: (file: File | null) => Promise<boolean>;
+  addIngredientsToPantry: (ingredients: string[]) => void;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -192,5 +193,26 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       });
       return false;
     }
+  },
+  addIngredientsToPantry: (ingredients) => {
+    const currentAnalysis = get().pantryAnalysis;
+    const defaultMockNames = ["Avocados", "Chicken Breast", "Quinoa", "Greek Yogurt", "Spinach"];
+    const currentIngredients = currentAnalysis 
+      ? currentAnalysis.identifiedIngredients 
+      : defaultMockNames;
+
+    const updatedIngredients = [...currentIngredients];
+    ingredients.forEach(newIng => {
+      if (!updatedIngredients.some(existing => existing.toLowerCase() === newIng.toLowerCase())) {
+        updatedIngredients.push(newIng);
+      }
+    });
+
+    set({
+      pantryAnalysis: {
+        identifiedIngredients: updatedIngredients,
+        recipes: currentAnalysis ? currentAnalysis.recipes : []
+      }
+    });
   },
 }));
