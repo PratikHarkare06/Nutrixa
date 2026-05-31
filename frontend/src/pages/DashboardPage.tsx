@@ -61,11 +61,15 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
     }
   };
 
-  const handleAddWater = () => {
-    setHydrationML((prev) => Math.min(2500, prev + 250));
+  const handleAddWater = (amount: number) => {
+    setHydrationML((prev) => Math.min(3000, prev + amount));
   };
 
-  const hydrationPercent = Math.round((hydrationML / 2500) * 100);
+  const handleSubtractWater = () => {
+    setHydrationML((prev) => Math.max(0, prev - 250));
+  };
+
+  const hydrationPercent = Math.min(100, Math.round((hydrationML / 3000) * 100));
 
   return (
     <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 animate-fade-in">
@@ -208,42 +212,126 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
           </section>
 
           {/* Hydration Tracker Section */}
-          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm flex items-center justify-between card-hover animate-slide-up">
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-bold text-textHeading">Hydration Tracker</h2>
-                <p className="text-sm text-textMuted mt-1">You've drunk {(hydrationML/1000).toFixed(1)}L of your 2.5L goal.</p>
+          <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 card-hover animate-slide-up relative overflow-hidden">
+            <style>{`
+              @keyframes waveMove {
+                0% { transform: translate(-160px, 0); }
+                100% { transform: translate(0, 0); }
+              }
+              .wave-animate-1 {
+                animation: waveMove 3s infinite linear;
+              }
+              .wave-animate-2 {
+                animation: waveMove 2s infinite linear;
+              }
+            `}</style>
+
+            <div className="space-y-4 flex-1 w-full">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-lg font-bold text-textHeading">Hydration Tracker</h2>
+                  <p className="text-sm text-textMuted mt-1">You've drunk {(hydrationML/1000).toFixed(2)}L of your 3.0L goal.</p>
+                </div>
+                {hydrationML > 0 && (
+                  <button 
+                    onClick={handleSubtractWater}
+                    title="Undo last log"
+                    className="text-xs font-bold text-[#E8815A] hover:text-[#c4613b] border border-[#FEE2D5] bg-[#FEF0EB] px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    <span>↺</span> Undo
+                  </button>
+                )}
               </div>
-              <button 
-                onClick={handleAddWater}
-                className="px-6 py-2 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9E7E] text-textHeading hover:text-[#7A9E7E] rounded-xl text-xs font-bold transition-all shadow-sm"
-              >
-                Add 250ml
-              </button>
+
+              {/* Logging Presets Grid */}
+              <div className="grid grid-cols-2 gap-3 max-w-sm">
+                <button
+                  onClick={() => handleAddWater(150)}
+                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <span>🥛</span> Cup (+150ml)
+                </button>
+                <button
+                  onClick={() => handleAddWater(250)}
+                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <span>🥛</span> Glass (+250ml)
+                </button>
+                <button
+                  onClick={() => handleAddWater(500)}
+                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <span>🍼</span> Bottle (+500ml)
+                </button>
+                <button
+                  onClick={() => handleAddWater(750)}
+                  className="px-3 py-2.5 bg-[#F9FAF8] border border-[#E2E4DC] hover:border-[#7A9EBE] hover:bg-[#EBF2F8] text-textHeading hover:text-[#7A9EBE] rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <span>🥤</span> Shaker (+750ml)
+                </button>
+              </div>
             </div>
 
-            {/* Circular Progress Gauge */}
-            <div className="relative w-28 h-28 flex-shrink-0">
-              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+            {/* Premium Animated Tumbler SVG */}
+            <div className="relative w-32 h-36 flex-shrink-0 flex items-center justify-center">
+              <svg viewBox="0 0 100 120" className="w-full h-full">
+                <defs>
+                  <clipPath id="glass-water-clip">
+                    {/* Inner glass contour matching shape */}
+                    <path d="M 28 12 L 34 104 A 6 6 0 0 0 40 110 L 60 110 A 6 6 0 0 0 66 104 L 72 12 Z" />
+                  </clipPath>
+                </defs>
+
+                {/* Glass Inner Liquid Content */}
+                <g clipPath="url(#glass-water-clip)">
+                  {/* Background Water Base */}
+                  <rect
+                    x="0"
+                    y={112 - (hydrationPercent * 1.0)}
+                    width="100"
+                    height="120"
+                    fill="#7A9EBE"
+                    className="transition-all duration-1000 ease-out"
+                    opacity="0.85"
+                  />
+                  
+                  {/* Wave Layer 1 */}
+                  <path
+                    d="M 0 10 Q 20 5, 40 10 T 80 10 T 120 10 T 160 10 T 200 10 L 200 120 L 0 120 Z"
+                    fill="#7A9EBE"
+                    transform={`translate(0, ${100 - (hydrationPercent * 1.0)})`}
+                    className="wave-animate-1 transition-all duration-1000 ease-out opacity-70"
+                  />
+
+                  {/* Wave Layer 2 */}
+                  <path
+                    d="M 0 10 Q 25 15, 50 10 T 100 10 T 150 10 T 200 10 L 200 120 L 0 120 Z"
+                    fill="#5F88AD"
+                    transform={`translate(0, ${102 - (hydrationPercent * 1.0)})`}
+                    className="wave-animate-2 transition-all duration-1000 ease-out"
+                  />
+                </g>
+
+                {/* Glass Exterior Shape */}
                 <path
-                  className="text-[#E2E4DC]"
-                  strokeWidth="3.2"
-                  stroke="currentColor"
+                  d="M 27 10 L 33 105 A 8 8 0 0 0 41 112 L 59 112 A 8 8 0 0 0 67 105 L 73 10"
                   fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-blue"
-                  strokeDasharray={`${hydrationPercent}, 100`}
-                  strokeWidth="3.2"
+                  stroke="#E2E4DC"
+                  strokeWidth="3.5"
                   strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
+
+                {/* Measuring ticks on glass */}
+                <line x1="68" y1="30" x2="72" y2="30" stroke="#E2E4DC" strokeWidth="1.5" />
+                <line x1="66" y1="60" x2="70" y2="60" stroke="#E2E4DC" strokeWidth="1.5" />
+                <line x1="64" y1="90" x2="68" y2="90" stroke="#E2E4DC" strokeWidth="1.5" />
               </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-xl font-bold text-textHeading">{hydrationPercent}%</span>
+              
+              {/* Percent Indicator Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-4">
+                <span className="text-base font-black text-textHeading drop-shadow-md select-none bg-white/70 px-2 py-0.5 rounded-full border border-border/40">
+                  {hydrationPercent}%
+                </span>
               </div>
             </div>
           </section>
