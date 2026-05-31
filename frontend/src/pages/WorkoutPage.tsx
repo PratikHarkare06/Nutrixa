@@ -90,6 +90,102 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [hydrated, setHydrated] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // Companion Timer States
+  const [activeWorkoutCompanion, setActiveWorkoutCompanion] = useState<DailyWorkoutPlan | null>(null);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
+  const [currentSet, setCurrentSet] = useState<number>(1);
+  const [timerSeconds, setTimerSeconds] = useState<number>(0);
+  const [timerType, setTimerType] = useState<"exercise" | "rest">("exercise");
+  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
+  
+  // Dynamic stats
+  const [weeklyData, setWeeklyData] = useState(mockWeeklyData);
+  const [burnedCalories, setBurnedCalories] = useState(450);
+  const [sessionsCount, setSessionsCount] = useState(3);
+
+  const [workoutCompleted, setWorkoutCompleted] = useState<boolean>(false);
+
+  const handleNextSetOrExercise = () => {
+    if (!activeWorkoutCompanion) return;
+    const ex = activeWorkoutCompanion.exercises[currentExerciseIndex];
+
+    if (currentSet < ex.sets) {
+      const nextSetNum = currentSet + 1;
+      setCurrentSet(nextSetNum);
+      setTimerType("exercise");
+      setTimerSeconds(0);
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(`Set ${nextSetNum} of ${ex.name}.`);
+        window.speechSynthesis.speak(utterance);
+      }
+    } else {
+      if (currentExerciseIndex < activeWorkoutCompanion.exercises.length - 1) {
+        const nextExIdx = currentExerciseIndex + 1;
+        const nextEx = activeWorkoutCompanion.exercises[nextExIdx];
+        setCurrentExerciseIndex(nextExIdx);
+        setCurrentSet(1);
+        setTimerType("exercise");
+        setTimerSeconds(0);
+        if ("speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(`Starting ${nextEx.name}. Set 1 of ${nextEx.sets}.`);
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+    }
+  };
+
+  const handleCompleteSet = () => {
+    if (!activeWorkoutCompanion) return;
+    const ex = activeWorkoutCompanion.exercises[currentExerciseIndex];
+    const isLastSet = currentSet === ex.sets;
+    const isLastExercise = currentExerciseIndex === activeWorkoutCompanion.exercises.length - 1;
+
+    if (isLastSet && isLastExercise) {
+      setIsTimerRunning(false);
+      setWorkoutCompleted(true);
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance("Workout complete! Congratulations, you did an amazing job today!");
+        window.speechSynthesis.speak(utterance);
+      }
+    } else {
+      setTimerType("rest");
+      setTimerSeconds(ex.restSecs || 30);
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(`Rest for ${ex.restSecs || 30} seconds.`);
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  };
+
+  // Timer ticking logic
+  useEffect(() => {
+    let interval: any = null;
+    if (isTimerRunning && activeWorkoutCompanion) {
+      interval = setInterval(() => {
+        if (timerType === "exercise") {
+          setTimerSeconds((prev) => prev + 1);
+        } else {
+          setTimerSeconds((prev) => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              // Run in timeout to prevent React state collision during render
+              setTimeout(() => {
+                handleNextSetOrExercise();
+              }, 0);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning, timerType, activeWorkoutCompanion, currentExerciseIndex, currentSet]);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -170,7 +266,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
         <div>
           <h1 className="text-3xl font-bold text-textHeading tracking-tight">Fitness &amp; Training</h1>
           <p className="text-textMuted text-sm mt-1">
-            You've burned 450 kcal across 3 sessions this week.
+            You've burned {burnedCalories} kcal across {sessionsCount} sessions this week.
           </p>
         </div>
 
@@ -363,17 +459,38 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                       {activePlan.isRestDay ? (
                         <p className="text-xs text-textMuted italic">Active recovery day. Stretch or walk.</p>
                       ) : (
-                        activePlan.exercises.map((ex, i) => (
-                          <div key={i} className="flex justify-between text-xs py-1.5 border-b border-border/40 last:border-b-0">
-                            <div>
-                              <span className="font-bold text-textHeading block">{ex.name}</span>
-                              <span className="text-[10px] text-textMuted">{ex.notes}</span>
+                        <>
+                          {activePlan.exercises.map((ex, i) => (
+                            <div key={i} className="flex justify-between text-xs py-1.5 border-b border-border/40 last:border-b-0">
+                              <div>
+                                <span className="font-bold text-textHeading block">{ex.name}</span>
+                                <span className="text-[10px] text-textMuted">{ex.notes}</span>
+                              </div>
+                              <span className="font-semibold text-textMuted text-right shrink-0">
+                                {ex.sets}s • {ex.reps} • Rest {ex.restSecs}s
+                              </span>
                             </div>
-                            <span className="font-semibold text-textMuted text-right shrink-0">
-                              {ex.sets}s • {ex.reps} • Rest {ex.restSecs}s
-                            </span>
-                          </div>
-                        ))
+                          ))}
+                          <button
+                            onClick={() => {
+                              setActiveWorkoutCompanion(activePlan);
+                              setCurrentExerciseIndex(0);
+                              setCurrentSet(1);
+                              setTimerSeconds(0);
+                              setTimerType("exercise");
+                              setIsTimerRunning(true);
+                              if ("speechSynthesis" in window) {
+                                window.speechSynthesis.cancel();
+                                const firstEx = activePlan.exercises[0];
+                                const utterance = new SpeechSynthesisUtterance(`Starting ${firstEx.name}. Set 1 of ${firstEx.sets}.`);
+                                window.speechSynthesis.speak(utterance);
+                              }
+                            }}
+                            className="w-full py-2.5 mt-4 bg-[#7A9E7E] hover:bg-[#5C7A60] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                          >
+                            <span>▶</span> Start Workout
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -390,7 +507,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
             
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockWeeklyData} margin={{ top: 10, right: 5, left: -30, bottom: 0 }}>
+                <BarChart data={weeklyData} margin={{ top: 10, right: 5, left: -30, bottom: 0 }}>
                   <XAxis 
                     dataKey="name" 
                     tickLine={false} 
@@ -408,7 +525,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                   />
                   <Bar dataKey="mins" fill="#C8CBBC" radius={[4, 4, 0, 0]} barSize={22}>
                     {/* Sage green highlight for Saturday peaks */}
-                    {mockWeeklyData.map((entry, index) => (
+                    {weeklyData.map((entry, index) => (
                       <rect key={index} fill={entry.mins > 50 ? "#9DB89F" : "#C8CBBC"} />
                     ))}
                   </Bar>
@@ -552,12 +669,243 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
 
       {/* Floating Action Button matching Workouts.png */}
       <button 
-        onClick={() => alert("Starting workout session...")}
+        onClick={() => {
+          if (activePlan) {
+            setActiveWorkoutCompanion(activePlan);
+            setCurrentExerciseIndex(0);
+            setCurrentSet(1);
+            setTimerSeconds(0);
+            setTimerType("exercise");
+            setIsTimerRunning(true);
+            if ("speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              const firstEx = activePlan.exercises[0];
+              const utterance = new SpeechSynthesisUtterance(`Starting ${firstEx.name}. Set 1 of ${firstEx.sets}.`);
+              window.speechSynthesis.speak(utterance);
+            }
+          } else {
+            alert("Please generate or view your AI Workout Plan first!");
+          }
+        }}
         className="fixed bottom-8 right-8 flex items-center gap-1.5 px-6 py-3.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-full font-bold shadow-lg shadow-[#9DB89F]/30 hover:scale-105 active:scale-95 transition-all z-20"
       >
         <span className="text-lg font-semibold">+</span>
         <span>Start Workout</span>
       </button>
+
+      {/* Interactive Workout Companion Modal */}
+      {activeWorkoutCompanion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#F6F8F3]/98 backdrop-blur-md overflow-y-auto">
+          <div className="max-w-2xl w-full flex flex-col items-center text-center space-y-8 p-6 md:p-12 relative bg-white border border-border rounded-[32px] shadow-2xl">
+            
+            {/* Close / Quit button */}
+            <button
+              onClick={() => {
+                if (confirm("Are you sure you want to quit this workout session? Your progress won't be saved.")) {
+                  setActiveWorkoutCompanion(null);
+                  setIsTimerRunning(false);
+                  setWorkoutCompleted(false);
+                  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                }
+              }}
+              className="absolute top-6 right-6 text-xs font-bold text-textMuted hover:text-rose-500 transition-colors border border-border bg-white px-3 py-1.5 rounded-full shadow-sm"
+            >
+              Quit Session
+            </button>
+
+            {!workoutCompleted ? (
+              <>
+                {/* Active Session Exercise Info */}
+                <div className="space-y-2 mt-4">
+                  <span className={`px-3 py-1 border rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    timerType === "exercise" 
+                      ? "bg-[#EBF2EB] text-[#7A9E7E] border-[#D4E6D5]" 
+                      : "bg-[#FEF9EB] text-[#D4A847] border-[#F5E6C4]"
+                  }`}>
+                    {timerType === "exercise" ? "Active Set" : "Rest Period"}
+                  </span>
+                  
+                  {timerType === "exercise" ? (
+                    <>
+                      <h2 className="text-3xl font-extrabold text-textHeading capitalize mt-2">
+                        {activeWorkoutCompanion.exercises[currentExerciseIndex].name}
+                      </h2>
+                      <p className="text-xs text-textMuted max-w-md mx-auto mt-1">
+                        {activeWorkoutCompanion.exercises[currentExerciseIndex].notes}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-3xl font-extrabold text-[#D4A847] mt-2">
+                        Take a Rest!
+                      </h2>
+                      <p className="text-xs text-textMuted max-w-md mx-auto mt-1 font-semibold">
+                        Next: {activeWorkoutCompanion.exercises[currentSet === activeWorkoutCompanion.exercises[currentExerciseIndex].sets ? Math.min(currentExerciseIndex + 1, activeWorkoutCompanion.exercises.length - 1) : currentExerciseIndex].name}
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* Circular Timer UI */}
+                <div className="relative w-64 h-64 flex flex-col items-center justify-center bg-[#F6F8F3]/50 border border-border rounded-full shadow-inner">
+                  <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+                    <circle
+                      cx="128"
+                      cy="128"
+                      r="112"
+                      stroke="#E2E4DC"
+                      strokeWidth="8"
+                      fill="transparent"
+                    />
+                    <circle
+                      cx="128"
+                      cy="128"
+                      r="112"
+                      stroke={timerType === "exercise" ? "#7A9E7E" : "#D4A847"}
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={2 * Math.PI * 112}
+                      strokeDashoffset={
+                        timerType === "exercise"
+                          ? 0
+                          : (2 * Math.PI * 112) * (1 - (timerSeconds / (activeWorkoutCompanion.exercises[currentExerciseIndex].restSecs || 30)))
+                      }
+                      className="transition-all duration-1000"
+                    />
+                  </svg>
+
+                  {/* Timer display */}
+                  <div className="z-10 text-center">
+                    <span className="text-5xl font-black text-textHeading font-mono tracking-tight">
+                      {timerType === "exercise"
+                        ? `${Math.floor(timerSeconds / 60)}:${(timerSeconds % 60).toString().padStart(2, "0")}`
+                        : `${timerSeconds}s`}
+                    </span>
+                    <span className="block text-[10px] font-bold text-textMuted uppercase mt-1 tracking-wider">
+                      {timerType === "exercise" ? "Elapsed Time" : "Seconds Left"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Set indicators */}
+                <div className="space-y-2">
+                  <div className="text-sm font-extrabold text-textHeading">
+                    Set {currentSet} of {activeWorkoutCompanion.exercises[currentExerciseIndex].sets}
+                  </div>
+                  <div className="flex gap-2.5 justify-center">
+                    {Array.from({ length: activeWorkoutCompanion.exercises[currentExerciseIndex].sets }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`w-3 h-3 rounded-full border transition-all ${
+                          idx + 1 < currentSet
+                            ? "bg-[#7A9E7E] border-[#7A9E7E]"
+                            : idx + 1 === currentSet && timerType === "exercise"
+                            ? "bg-[#EBF2EB] border-[#7A9E7E] scale-110"
+                            : "bg-white border-border"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Controls */}
+                <div className="flex gap-4 w-full max-w-sm pt-4">
+                  {timerType === "exercise" ? (
+                    <>
+                      <button
+                        onClick={() => setIsTimerRunning(!isTimerRunning)}
+                        className={`flex-1 py-3.5 rounded-2xl text-xs font-bold transition-all shadow-sm ${
+                          isTimerRunning
+                            ? "bg-[#E2E4DC] hover:bg-[#D4D6CC] text-textHeading"
+                            : "bg-[#7A9E7E] hover:bg-[#5C7A60] text-white"
+                        }`}
+                      >
+                        {isTimerRunning ? "Pause Timer" : "Resume Timer"}
+                      </button>
+                      <button
+                        onClick={handleCompleteSet}
+                        className="flex-1 py-3.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-2xl text-xs font-bold transition-all shadow-sm"
+                      >
+                        Complete Set ✓
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        handleNextSetOrExercise();
+                      }}
+                      className="w-full py-3.5 bg-[#D4A847] hover:bg-[#B38D36] text-white rounded-2xl text-xs font-bold transition-all shadow-sm"
+                    >
+                      Skip Rest Interval ▶
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              // Workout Completed Summary Screen
+              <div className="space-y-6 py-6 w-full max-w-md">
+                <span className="text-6xl block animate-bounce">🏆</span>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black text-textHeading">Workout Completed!</h2>
+                  <p className="text-xs text-textMuted leading-relaxed max-w-sm mx-auto">
+                    Outstanding job, Alex! Today's exercises have been synchronized and successfully logged.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-[#F5F6F1] border border-border p-5 rounded-3xl text-center">
+                  <div>
+                    <span className="block text-2xl font-extrabold text-textHeading">
+                      {activeWorkoutCompanion.durationMins}m
+                    </span>
+                    <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider">
+                      Total Time
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-2xl font-extrabold text-[#E8815A]">
+                      {activeWorkoutCompanion.exercises.reduce((sum) => sum + 100, 0)} kcal
+                    </span>
+                    <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider">
+                      Est. Burned
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const duration = activeWorkoutCompanion.durationMins || 30;
+                    const calories = activeWorkoutCompanion.exercises.reduce((sum) => sum + 100, 0);
+
+                    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                    const dayIndex = dayNames.indexOf(selectedDay);
+                    if (dayIndex !== -1) {
+                      setWeeklyData((prev) =>
+                        prev.map((item, idx) => {
+                          if (idx === dayIndex) {
+                            return { ...item, mins: item.mins + duration };
+                          }
+                          return item;
+                        })
+                      );
+                    }
+
+                    setBurnedCalories((prev) => prev + calories);
+                    setSessionsCount((prev) => prev + 1);
+
+                    // Clear state
+                    setActiveWorkoutCompanion(null);
+                    setWorkoutCompleted(false);
+                    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                  }}
+                  className="w-full py-4 bg-[#7A9E7E] hover:bg-[#5C7A60] text-white rounded-2xl text-xs font-bold transition-all shadow-md mt-4"
+                >
+                  Log Workout & Complete
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
