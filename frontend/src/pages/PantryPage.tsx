@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { SparklesIcon, CameraIcon } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
+import { generateZeroWasteRecipeRequest } from "../services/uploadApi";
 
 // Mock data to match mockup screenshot
 const mockPantryItems = [
@@ -78,6 +79,7 @@ export const PantryPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<"All" | "Fresh" | "Dry">("All");
   const [activeRecipe, setActiveRecipe] = useState<any | null>(null);
+  const [isGeneratingZeroWaste, setIsGeneratingZeroWaste] = useState(false);
 
   const {
     pantryAnalysis,
@@ -85,7 +87,8 @@ export const PantryPage = () => {
     errorMessage,
     progressMessage,
     uploadPantryImage,
-    setPantryAnalysis
+    setPantryAnalysis,
+    deductIngredientsFromPantry
   } = useUploadStore();
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +103,50 @@ export const PantryPage = () => {
 
   const triggerUpload = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleGenerateZeroWasteRecipe = async () => {
+    setIsGeneratingZeroWaste(true);
+    try {
+      const currentList = pantryAnalysis 
+        ? pantryAnalysis.identifiedIngredients.map((ing, i) => ({ name: ing, tag: i % 2 === 0 ? "Fresh" : "Low" }))
+        : mockPantryItems;
+
+      const expiringIngredients = currentList
+        .filter(item => item.tag === "Low")
+        .map(item => item.name);
+
+      const ingredientsToUse = expiringIngredients.length > 0 
+        ? expiringIngredients 
+        : currentList.map(item => item.name);
+
+      const response = await generateZeroWasteRecipeRequest(ingredientsToUse);
+      
+      if (response && response.success && response.data) {
+        setActiveRecipe({
+          name: response.data.name,
+          description: response.data.description,
+          time: response.data.prepTime,
+          prepTime: response.data.prepTime,
+          match: "AI Generated",
+          img: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80",
+          calories: response.data.calories,
+          protein: response.data.protein,
+          carbs: response.data.carbs,
+          fat: response.data.fat,
+          ingredients: response.data.ingredients,
+          instructions: response.data.instructions,
+          isAiGenerated: true,
+        });
+      } else {
+        alert("Failed to generate zero-waste recipe.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error generating recipe from expiring items. Please try again.");
+    } finally {
+      setIsGeneratingZeroWaste(false);
+    }
   };
 
   return (
@@ -232,6 +279,34 @@ export const PantryPage = () => {
         {/* Right Column (Recipe AI suggestions) */}
         <div className="space-y-8">
           
+          {/* AI Zero-Waste Kitchen Card */}
+          <section className="bg-[#FEF9EB] rounded-[24px] border border-[#F5E6C4] p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-textHeading">
+              <span className="text-lg">👩‍🍳</span>
+              <h3 className="font-bold text-base text-[#D4A847]">AI Zero-Waste Kitchen</h3>
+            </div>
+            <p className="text-xs text-textMuted leading-relaxed">
+              Have ingredients expiring soon? Let Gemini create a custom high-protein recipe to use them up.
+            </p>
+            <button
+              onClick={handleGenerateZeroWasteRecipe}
+              disabled={isGeneratingZeroWaste}
+              className="w-full py-2.5 bg-[#D4A847] hover:bg-[#B38D36] disabled:bg-[#F5E6C4] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 group transition-all"
+            >
+              {isGeneratingZeroWaste ? (
+                <>
+                  <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+                  Generating custom recipe...
+                </>
+              ) : (
+                <>
+                  <span className="group-hover:rotate-12 transition-transform">✨</span>
+                  Generate Zero-Waste Recipe
+                </>
+              )}
+            </button>
+          </section>
+
           {/* Recipe AI Header Card */}
           <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-textHeading">
@@ -326,8 +401,10 @@ export const PantryPage = () => {
                 ✕
               </button>
               <div className="absolute bottom-6 left-6 right-6 text-white">
-                <span className="px-3 py-1 bg-[#7A9E7E] text-white rounded-full text-[10px] font-bold shadow-sm uppercase tracking-wide">
-                  ✓ {activeRecipe.match || "90%"} match
+                <span className={`px-3 py-1 text-white rounded-full text-[10px] font-bold shadow-sm uppercase tracking-wide ${
+                  activeRecipe.isAiGenerated ? "bg-[#D4A847]" : "bg-[#7A9E7E]"
+                }`}>
+                  {activeRecipe.isAiGenerated ? "✨ AI Generated" : `✓ ${activeRecipe.match || "90%"} match`}
                 </span>
                 <h2 className="text-2xl font-bold mt-2 drop-shadow-md capitalize text-white">{activeRecipe.name}</h2>
                 <p className="text-white/90 text-xs mt-1 drop-shadow-sm font-semibold">⏱ Prep Time: {activeRecipe.prepTime || activeRecipe.time || "15 min"}</p>
@@ -418,12 +495,17 @@ export const PantryPage = () => {
                 </button>
                 <button
                   onClick={() => {
-                    alert("Cooking mode started! Follow the steps to prepare your meal.");
+                    if (activeRecipe.isAiGenerated) {
+                      deductIngredientsFromPantry(activeRecipe.ingredients);
+                      alert("Recipe cooked! Used ingredients have been deducted from your pantry stock.");
+                    } else {
+                      alert("Cooking mode started! Follow the steps to prepare your meal.");
+                    }
                     setActiveRecipe(null);
                   }}
                   className="flex-1 py-3 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
                 >
-                  Start Cooking
+                  {activeRecipe.isAiGenerated ? "Cook & Deduct Stock" : "Start Cooking"}
                 </button>
               </div>
             </div>

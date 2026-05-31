@@ -19,6 +19,7 @@ type UploadState = {
   scanBarcode: (barcode: string) => Promise<boolean>;
   uploadPantryImage: (file: File | null) => Promise<boolean>;
   addIngredientsToPantry: (ingredients: string[]) => void;
+  deductIngredientsFromPantry: (ingredients: string[]) => void;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -207,6 +208,28 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         updatedIngredients.push(newIng);
       }
     });
+
+    set({
+      pantryAnalysis: {
+        identifiedIngredients: updatedIngredients,
+        recipes: currentAnalysis ? currentAnalysis.recipes : []
+      }
+    });
+  },
+  deductIngredientsFromPantry: (ingredients) => {
+    const currentAnalysis = get().pantryAnalysis;
+    const defaultMockNames = ["Avocados", "Chicken Breast", "Quinoa", "Greek Yogurt", "Spinach"];
+    const currentIngredients = currentAnalysis 
+      ? currentAnalysis.identifiedIngredients 
+      : defaultMockNames;
+
+    // Filter out ingredients that match or partially match the deducted list
+    const updatedIngredients = currentIngredients.filter(existing => 
+      !ingredients.some(deduct => 
+        existing.toLowerCase().includes(deduct.toLowerCase()) || 
+        deduct.toLowerCase().includes(existing.toLowerCase())
+      )
+    );
 
     set({
       pantryAnalysis: {

@@ -267,4 +267,61 @@ Do not return any markdown formatting outside of the JSON.`;
   }
 };
 
-module.exports = { analyzeFoodImageWithGemini, getMealSuggestions, generatePersonalizedDietPlan, analyzePantryWithGemini, generateGroceryList };
+const generateZeroWasteRecipeWithGemini = async (ingredients, profile) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const restrictions = profile?.dietary_restrictions?.length ? profile.dietary_restrictions.join(", ") : "None";
+  const allergies = profile?.food_allergies?.length ? profile.food_allergies.join(", ") : "None";
+  const dietMode = profile?.diet_mode || "Balanced";
+
+  const prompt = `You are a world-class Indian nutritionist and master chef.
+I have a list of ingredients that are expiring soon or in low stock in my pantry.
+Please generate exactly ONE healthy, delicious, and easy-to-cook recipe that PRIMARILY utilizes these ingredients.
+You may assume basic kitchen staples like oil, water, salt, black pepper, turmeric, and basic spices are available.
+
+Expiring ingredients: ${ingredients.join(", ")}
+
+The user's profile:
+- Diet Mode: ${dietMode}
+- Dietary Restrictions: ${restrictions}
+- Allergies: ${allergies}
+
+The recipe MUST strictly adhere to the Diet Mode, dietary restrictions, and allergies. Do not suggest anything that violates these.
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "name": "Recipe Name",
+  "description": "Short description of the recipe",
+  "prepTime": "25 mins",
+  "calories": 450,
+  "protein": 32,
+  "carbs": 24,
+  "fat": 15,
+  "ingredients": ["Ingredient Name - quantity/amount"],
+  "instructions": ["Step 1...", "Step 2..."]
+}
+Do not return any markdown formatting or any other text outside the JSON.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [prompt],
+      config: { responseMimeType: "application/json" },
+    });
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Gemini Zero Waste Recipe Error:", error);
+    throw new Error("Failed to generate zero waste recipe.");
+  }
+};
+
+module.exports = { 
+  analyzeFoodImageWithGemini, 
+  getMealSuggestions, 
+  generatePersonalizedDietPlan, 
+  analyzePantryWithGemini, 
+  generateGroceryList,
+  generateZeroWasteRecipeWithGemini
+};

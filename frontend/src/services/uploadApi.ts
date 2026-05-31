@@ -70,6 +70,11 @@ export const uploadPantryImageRequest = async (
   return response.data;
 };
 
+export const generateZeroWasteRecipeRequest = async (ingredients: string[]) => {
+  const response = await api.post("/profile/zero-waste-recipe", { ingredients });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 
