@@ -89,6 +89,11 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [showAIPersonalTrainer, setShowAIPersonalTrainer] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: "streak", emoji: "⭐", bg: "#EBF2EB", border: "#D4E6D5", titleColor: "#2C3E2B", textColor: "#2C3E2B", title: "7 Day Streak!", text: "Alex, you have maintained a 7-day food logging consistency." },
+    { id: 2, type: "water", emoji: "💧", bg: "#FEF0EB", border: "#FEE2D5", titleColor: "#E8815A", textColor: "#E8815A", title: "Hydration Target", text: "Don't forget to log 500ml water after your lunch." },
+    { id: 3, type: "workout", emoji: "🏋️‍♂️", bg: "#EBF2F8", border: "#E2E4DC", titleColor: "#2C3E2B", textColor: "#888888", title: "Workout Logged", text: "3 workout sessions synchronized from Apple Health." }
+  ]);
 
   // Companion Timer States
   const [activeWorkoutCompanion, setActiveWorkoutCompanion] = useState<DailyWorkoutPlan | null>(null);
@@ -306,7 +311,9 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth={2}>
               <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
             </svg>
-            <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-rose-500"></span>
+            {notifications.length > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500" />
+            )}
           </button>
           <div 
             onClick={() => onNavigate?.("/profile")}
@@ -317,7 +324,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 top-12 w-80 bg-white/95 backdrop-blur-md border border-border rounded-2xl shadow-xl p-4 z-50 animate-slide-up">
+            <div className="absolute right-0 top-12 w-80 bg-white/97 backdrop-blur-md border border-border rounded-2xl shadow-xl p-4 z-50 animate-slide-up">
               <div className="flex justify-between items-center mb-3">
                 <h4 className="font-bold text-textHeading text-xs">Notifications</h4>
                 <button 
@@ -328,27 +335,35 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                 </button>
               </div>
               <div className="space-y-3">
-                <div className="p-2.5 rounded-xl bg-[#EBF2EB] border border-[#D4E6D5] flex gap-2 items-start">
-                  <span className="text-sm">⭐</span>
-                  <div>
-                    <h5 className="font-bold text-[#2C3E2B] text-[10px]">7 Day Streak!</h5>
-                    <p className="text-[9px] text-[#2C3E2B]/85 mt-0.5">Alex, you have maintained a 7-day food logging consistency.</p>
+                {notifications.length > 0 ? (
+                  notifications.map((notif) => (
+                    <div 
+                      key={notif.id} 
+                      style={{ backgroundColor: notif.bg, borderColor: notif.border }}
+                      className="p-2.5 rounded-xl border flex gap-2 items-start relative group"
+                    >
+                      <span className="text-sm">{notif.emoji}</span>
+                      <div className="flex-1 min-w-0 pr-4">
+                        <h5 className="font-bold text-[10px]" style={{ color: notif.titleColor }}>{notif.title}</h5>
+                        <p className="text-[9px] mt-0.5" style={{ color: notif.textColor }}>{notif.text}</p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+                        }}
+                        className="absolute top-2 right-2 text-textMuted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold px-1"
+                        title="Dismiss"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-6 text-center text-xs text-textMuted font-medium">
+                    No new notifications
                   </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-[#FEF0EB] border border-[#FEE2D5] flex gap-2 items-start">
-                  <span className="text-sm">💧</span>
-                  <div>
-                    <h5 className="font-bold text-[#E8815A] text-[10px]">Hydration Target</h5>
-                    <p className="text-[9px] text-[#E8815A]/85 mt-0.5">Don't forget to log 500ml water after your lunch.</p>
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-[#EBF2F8] border border-border flex gap-2 items-start">
-                  <span className="text-sm">🏋️‍♂️</span>
-                  <div>
-                    <h5 className="font-bold text-textHeading text-[10px]">Workout Logged</h5>
-                    <p className="text-[9px] text-textMuted mt-0.5">3 workout sessions synchronized from Apple Health.</p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}
