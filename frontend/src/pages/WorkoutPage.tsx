@@ -115,6 +115,11 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [workoutCompleted, setWorkoutCompleted] = useState<boolean>(false);
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [hoverMuscle, setHoverMuscle] = useState<string | null>(null);
+  const [isRecoveryCoachOpen, setIsRecoveryCoachOpen] = useState(false);
+  const [sleepHours, setSleepHours] = useState(7.5);
+  const [hydrationML, setHydrationML] = useState(2000);
+  const [recoveryCalorieBurn, setRecoveryCalorieBurn] = useState(450);
+  const [applyBiometricAdjustments, setApplyBiometricAdjustments] = useState(false);
 
   const playMetronomeTick = (frequency: number, duration: number) => {
     try {
@@ -372,7 +377,52 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
     );
   };
 
+  const startWorkoutSession = (plan: DailyWorkoutPlan) => {
+    let adjustedPlan = plan;
+    if (applyBiometricAdjustments) {
+      const isSleepLow = sleepHours < 7.0;
+      const isHydrationLow = hydrationML < 2000;
+      
+      adjustedPlan = {
+        ...plan,
+        exercises: plan.exercises.map((ex) => {
+          let adjustedSets = ex.sets;
+          let adjustedRest = ex.restSecs;
+          
+          if (isSleepLow) {
+            adjustedSets = Math.max(2, ex.sets - 1);
+            adjustedRest = ex.restSecs + 15;
+          }
+          if (isHydrationLow) {
+            adjustedRest = Math.max(adjustedRest, ex.restSecs + 10);
+          }
+          
+          return {
+            ...ex,
+            sets: adjustedSets,
+            restSecs: adjustedRest
+          };
+        })
+      };
+    }
+    
+    setActiveWorkoutCompanion(adjustedPlan);
+    setCurrentExerciseIndex(0);
+    setCurrentSet(1);
+    setTimerSeconds(0);
+    setTimerType("exercise");
+    setIsTimerRunning(true);
+    
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const firstEx = adjustedPlan.exercises[0];
+      const utterance = new SpeechSynthesisUtterance(`Starting ${firstEx.name}. Set 1 of ${firstEx.sets}.`);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const activePlan: DailyWorkoutPlan | undefined = workoutPlan?.find(d => d.day === selectedDay);
+  const recoveryScore = Math.min(100, Math.round((sleepHours / 8.0) * 45 + (hydrationML / 3000) * 35 + (recoveryCalorieBurn / 600) * 20));
 
   return (
     <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
@@ -673,25 +723,12 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                                 <span className="text-[10px] text-textMuted">{ex.notes}</span>
                               </div>
                               <span className="font-semibold text-textMuted text-right shrink-0">
-                                {ex.sets}s • {ex.reps} • Rest {ex.restSecs}s
+                                {ex.sets} sets • {ex.reps} • {ex.restSecs}s rest
                               </span>
                             </div>
                           ))}
                           <button
-                            onClick={() => {
-                              setActiveWorkoutCompanion(activePlan);
-                              setCurrentExerciseIndex(0);
-                              setCurrentSet(1);
-                              setTimerSeconds(0);
-                              setTimerType("exercise");
-                              setIsTimerRunning(true);
-                              if ("speechSynthesis" in window) {
-                                window.speechSynthesis.cancel();
-                                const firstEx = activePlan.exercises[0];
-                                const utterance = new SpeechSynthesisUtterance(`Starting ${firstEx.name}. Set 1 of ${firstEx.sets}.`);
-                                window.speechSynthesis.speak(utterance);
-                              }
-                            }}
+                            onClick={() => startWorkoutSession(activePlan)}
                             className="w-full py-2.5 mt-4 bg-[#7A9E7E] hover:bg-[#5C7A60] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
                           >
                             <span>▶</span> Start Workout
@@ -798,17 +835,22 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
               </div>
 
               {/* Recovery */}
-              <div className="bg-white border border-[#7A9EBE]/30 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,190,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,190,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+              <div 
+                onClick={() => setIsRecoveryCoachOpen(true)}
+                className="bg-white border border-[#7A9EBE]/30 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,190,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,190,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32 cursor-pointer group"
+              >
                 <div className="flex justify-between items-start">
-                  <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider">Recovery</span>
+                  <span className="text-[10px] text-textMuted font-bold uppercase tracking-wider group-hover:text-primary transition-colors">Recovery</span>
                   <span className="w-7 h-7 rounded-full bg-[#EBF2F8] border border-blueLight flex items-center justify-center text-xs">
                     🔋
                   </span>
                 </div>
                 <div>
-                  <div className="text-xl font-extrabold text-[#7A9E7E]">Good</div>
+                  <div className="text-xl font-extrabold text-[#7A9E7E]">
+                    {recoveryScore >= 75 ? "Excellent" : recoveryScore >= 50 ? "Good" : "Needs Rest"}
+                  </div>
                   <span className="inline-block bg-[#EBF2F8] text-[#7A9EBE] text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mt-2">
-                    88% charged
+                    {recoveryScore}% charged
                   </span>
                 </div>
               </div>
@@ -877,18 +919,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
       <button 
         onClick={() => {
           if (activePlan) {
-            setActiveWorkoutCompanion(activePlan);
-            setCurrentExerciseIndex(0);
-            setCurrentSet(1);
-            setTimerSeconds(0);
-            setTimerType("exercise");
-            setIsTimerRunning(true);
-            if ("speechSynthesis" in window) {
-              window.speechSynthesis.cancel();
-              const firstEx = activePlan.exercises[0];
-              const utterance = new SpeechSynthesisUtterance(`Starting ${firstEx.name}. Set 1 of ${firstEx.sets}.`);
-              window.speechSynthesis.speak(utterance);
-            }
+            startWorkoutSession(activePlan);
           } else {
             alert("Please generate or view your AI Workout Plan first!");
           }
@@ -1161,6 +1192,191 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Biometric Synergy & Recovery Coach Modal */}
+      {isRecoveryCoachOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#F6F8F3]/90 backdrop-blur-md overflow-y-auto">
+          <div className="max-w-md w-full bg-white border border-border rounded-[32px] shadow-2xl p-8 relative flex flex-col space-y-6 animate-scale-in">
+            {/* Close Trigger */}
+            <button
+              onClick={() => setIsRecoveryCoachOpen(false)}
+              className="absolute top-6 right-6 w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center text-textMuted hover:text-textHeading hover:bg-[#F6F8F3] transition-all"
+            >
+              ✕
+            </button>
+
+            {/* Header */}
+            <div className="text-center">
+              <span className="text-4xl block mb-2">🧠</span>
+              <h3 className="text-xl font-bold text-textHeading">Biometric Recovery Coach</h3>
+              <p className="text-xs text-textMuted mt-1">
+                Refine today's metrics to gauge muscular readiness and customize timer constraints.
+              </p>
+            </div>
+
+            {/* Gauge Display */}
+            <div className="flex flex-col items-center justify-center py-2">
+              <div className="relative w-32 h-32 flex items-center justify-center">
+                <svg className="w-full h-full" viewBox="0 0 120 120">
+                  {/* Base Track */}
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#EBF2EB"
+                    strokeWidth="10"
+                  />
+                  {/* Progress Arc */}
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke={
+                      recoveryScore >= 75
+                        ? "#7A9E7E"
+                        : recoveryScore >= 50
+                        ? "#D4A847"
+                        : "#E38F8F"
+                    }
+                    strokeWidth="10"
+                    strokeDasharray="314.15"
+                    strokeDashoffset={314.15 - (314.15 * recoveryScore) / 100}
+                    strokeLinecap="round"
+                    transform="rotate(-90 60 60)"
+                    className="transition-all duration-300"
+                  />
+                </svg>
+                {/* Center score */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="text-2xl font-black text-textHeading">{recoveryScore}%</span>
+                  <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider">
+                    {recoveryScore >= 75 ? "Ready" : recoveryScore >= 50 ? "Good" : "Fatigued"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Metric Sliders */}
+            <div className="space-y-4 bg-[#F9FAF8] border border-border p-5 rounded-2xl">
+              {/* Sleep slider */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-bold text-textHeading">💤 Sleep Duration</span>
+                  <span className="font-extrabold text-[#7A9EBE]">{sleepHours} hrs</span>
+                </div>
+                <input
+                  type="range"
+                  min="4"
+                  max="10"
+                  step="0.5"
+                  value={sleepHours}
+                  onChange={(e) => setSleepHours(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-[#E2E4DC] rounded-lg appearance-none cursor-pointer accent-[#7A9EBE]"
+                />
+              </div>
+
+              {/* Hydration slider */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-bold text-textHeading">💧 Hydration Level</span>
+                  <span className="font-extrabold text-[#7A9EBE]">{hydrationML} ml</span>
+                </div>
+                <input
+                  type="range"
+                  min="500"
+                  max="3000"
+                  step="250"
+                  value={hydrationML}
+                  onChange={(e) => setHydrationML(parseInt(e.target.value))}
+                  className="w-full h-1.5 bg-[#E2E4DC] rounded-lg appearance-none cursor-pointer accent-[#7A9EBE]"
+                />
+              </div>
+
+              {/* Active Burn slider */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-bold text-textHeading">🔥 Today's Calorie Burn</span>
+                  <span className="font-extrabold text-[#E8815A]">{recoveryCalorieBurn} kcal</span>
+                </div>
+                <input
+                  type="range"
+                  min="100"
+                  max="1000"
+                  step="50"
+                  value={recoveryCalorieBurn}
+                  onChange={(e) => setRecoveryCalorieBurn(parseInt(e.target.value))}
+                  className="w-full h-1.5 bg-[#E2E4DC] rounded-lg appearance-none cursor-pointer accent-[#E8815A]"
+                />
+              </div>
+            </div>
+
+            {/* Contextual Advice */}
+            <div
+              className={`p-4 rounded-2xl border text-xs leading-relaxed font-semibold transition-all ${
+                recoveryScore >= 75
+                  ? "bg-[#EBF2EB] border-[#7A9E7E]/30 text-[#2C3E2B]"
+                  : recoveryScore >= 50
+                  ? "bg-[#FEF9EB] border-[#D4A847]/30 text-[#61450C]"
+                  : "bg-[#FEF0EB] border-[#E38F8F]/30 text-[#8F3B20]"
+              }`}
+            >
+              {sleepHours < 7.0 && (
+                <p className="mb-1.5">
+                  ⚠️ <strong>Sleep Deficit:</strong> Muscular fibers are under-recovered. Companion sessions will automatically increase rest times by 15s and reduce sets by 1.
+                </p>
+              )}
+              {hydrationML < 2000 && (
+                <p className="mb-1.5">
+                  ⚠️ <strong>Dehydration Alert:</strong> Low blood viscosity. Consume 500ml water before workout. Companion rest times will increase by 10s.
+                </p>
+              )}
+              {sleepHours >= 7.0 && hydrationML >= 2000 && (
+                <p>
+                  🚀 <strong>Optimum Readiness:</strong> Sleep and hydration are in peak synergy. Cleared for maximal effort and intensity.
+                </p>
+              )}
+            </div>
+
+            {/* Tuning Toggle Switch */}
+            <label className="flex items-center justify-between p-4 bg-[#F6F8F3] border border-border/80 rounded-2xl cursor-pointer">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-textHeading block">Sync Companion Adjustments</span>
+                <span className="text-[10px] text-textMuted">Tweak companion sets &amp; rest intervals dynamically</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={applyBiometricAdjustments}
+                onChange={(e) => setApplyBiometricAdjustments(e.target.checked)}
+                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary accent-[#7A9E7E]"
+              />
+            </label>
+
+            {/* Footer Buttons */}
+            <div className="flex gap-3.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsRecoveryCoachOpen(false)}
+                className="flex-1 py-3 bg-white hover:bg-[#F6F8F3] text-textHeading border border-border rounded-xl text-xs font-bold transition-all"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setApplyBiometricAdjustments(true);
+                  setIsRecoveryCoachOpen(false);
+                  alert(`Biometric recommendations synced successfully! Companion timer is now optimized for ${recoveryScore}% recovery readiness.`);
+                }}
+                className="flex-1 py-3 bg-[#7A9E7E] hover:bg-[#5C7A60] text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+              >
+                Apply Adjustments
+              </button>
+            </div>
           </div>
         </div>
       )}
