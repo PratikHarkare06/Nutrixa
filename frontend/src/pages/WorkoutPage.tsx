@@ -102,6 +102,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [timerType, setTimerType] = useState<"exercise" | "rest">("exercise");
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
+  const [metronomeEnabled, setMetronomeEnabled] = useState<boolean>(true);
   
   // Dynamic stats
   const [weeklyData, setWeeklyData] = useState(mockWeeklyData);
@@ -109,6 +110,49 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [sessionsCount, setSessionsCount] = useState(3);
 
   const [workoutCompleted, setWorkoutCompleted] = useState<boolean>(false);
+
+  const playMetronomeTick = (frequency: number, duration: number) => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+      
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+      
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + duration);
+    } catch (e) {
+      console.warn("Web Audio API error:", e);
+    }
+  };
+
+  const getTempoPhaseText = (seconds: number) => {
+    if (seconds === 0) return "Get Ready!";
+    const phase = (seconds - 1) % 5;
+    if (phase === 0 || phase === 1 || phase === 2) return "⬇️ DOWN (eccentric)";
+    if (phase === 3) return "⏸️ HOLD (isometric)";
+    return "⬆️ UP (concentric)";
+  };
+
+  const getTempoScale = (seconds: number) => {
+    if (seconds === 0) return 1.0;
+    const phase = (seconds - 1) % 5;
+    if (phase === 0) return 0.9;
+    if (phase === 1) return 0.8;
+    if (phase === 2) return 0.7;
+    if (phase === 3) return 0.7;
+    if (phase === 4) return 1.15;
+    return 1.0;
+  };
 
   const handleNextSetOrExercise = () => {
     if (!activeWorkoutCompanion) return;
@@ -209,6 +253,20 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timerType, activeWorkoutCompanion, currentExerciseIndex, currentSet]);
+
+  // Audio Metronome Ticks
+  useEffect(() => {
+    if (isTimerRunning && activeWorkoutCompanion && timerType === "exercise" && timerSeconds > 0) {
+      const phase = (timerSeconds - 1) % 5;
+      let freq = 400; // default Low (eccentric phase: seconds 1, 2, 3)
+      if (phase === 3) freq = 600; // Hold phase (second 4)
+      if (phase === 4) freq = 1000; // Concentric phase (second 5)
+
+      if (metronomeEnabled) {
+        playMetronomeTick(freq, 0.08);
+      }
+    }
+  }, [timerSeconds, isTimerRunning, timerType, activeWorkoutCompanion, metronomeEnabled]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -732,6 +790,15 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#F6F8F3]/98 backdrop-blur-md overflow-y-auto">
           <div className="max-w-2xl w-full flex flex-col items-center text-center space-y-8 p-6 md:p-12 relative bg-white border border-border rounded-[32px] shadow-2xl">
             
+            {/* Metronome Toggle Button */}
+            <button
+              onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+              className="absolute top-6 left-6 text-xs font-bold text-textMuted hover:text-[#7A9E7E] transition-colors border border-border bg-white px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 z-10"
+            >
+              <span>{metronomeEnabled ? "🔊" : "🔇"}</span>
+              <span>Metronome {metronomeEnabled ? "On" : "Off"}</span>
+            </button>
+
             {/* Close / Quit button */}
             <button
               onClick={() => {
@@ -742,7 +809,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
                 }
               }}
-              className="absolute top-6 right-6 text-xs font-bold text-textMuted hover:text-rose-500 transition-colors border border-border bg-white px-3 py-1.5 rounded-full shadow-sm"
+              className="absolute top-6 right-6 text-xs font-bold text-textMuted hover:text-rose-500 transition-colors border border-border bg-white px-3 py-1.5 rounded-full shadow-sm z-10"
             >
               Quit Session
             </button>
@@ -782,6 +849,17 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
 
                 {/* Circular Timer UI */}
                 <div className="relative w-64 h-64 flex flex-col items-center justify-center bg-[#F6F8F3]/50 border border-border rounded-full shadow-inner">
+                  {/* Pulsating Outer Halo Ring */}
+                  {timerType === "exercise" && isTimerRunning && (
+                    <div 
+                      className="absolute -inset-3 rounded-full bg-[#7A9E7E]/5 border border-[#7A9E7E]/10 transition-all"
+                      style={{
+                        transform: `scale(${1 + (getTempoScale(timerSeconds) - 1) * 0.4})`,
+                        transition: `transform ${((timerSeconds - 1) % 5) === 4 ? "0.5s" : "1s"} ease-in-out`
+                      }}
+                    />
+                  )}
+
                   <svg className="absolute inset-0 w-full h-full transform -rotate-90">
                     <circle
                       cx="128"
@@ -809,7 +887,21 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                   </svg>
 
                   {/* Timer display */}
-                  <div className="z-10 text-center">
+                  <div className="z-10 text-center flex flex-col items-center">
+                    {/* Animated Dumbbell/Barbell Illustration */}
+                    {timerType === "exercise" && (
+                      <div 
+                        className="flex justify-center mb-1"
+                        style={{
+                          transform: `scale(${getTempoScale(timerSeconds)})`,
+                          transition: `transform ${((timerSeconds - 1) % 5) === 4 ? "0.5s" : "1s"} ease-in-out`
+                        }}
+                      >
+                        <svg className="w-10 h-10 text-[#7A9E7E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10.5h1.5m15 0H21m-15-3v6m12-6v6M6 10.5h12M4.5 7.5h3v6h-3v-6zm12 0h3v6h-3v-6z" />
+                        </svg>
+                      </div>
+                    )}
                     <span className="text-5xl font-black text-textHeading font-mono tracking-tight">
                       {timerType === "exercise"
                         ? `${Math.floor(timerSeconds / 60)}:${(timerSeconds % 60).toString().padStart(2, "0")}`
@@ -820,6 +912,24 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
                     </span>
                   </div>
                 </div>
+
+                {/* Tempo Phase Indicator */}
+                {timerType === "exercise" && (
+                  <div className="text-center">
+                    <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider block mb-1">Lift Rhythm</span>
+                    <span className={`inline-block text-xs font-bold px-4 py-1.5 rounded-full border transition-all ${
+                      timerSeconds === 0 
+                        ? "bg-[#EBF2EB] text-[#7A9E7E] border-[#D4E6D5]"
+                        : ((timerSeconds - 1) % 5) <= 2
+                        ? "bg-[#FEF0EB] text-[#E8815A] border-[#FEE2D5]"
+                        : ((timerSeconds - 1) % 5) === 3
+                        ? "bg-[#FEF9EB] text-[#D4A847] border-[#F5E6C4]"
+                        : "bg-[#EBF2EB] text-[#7A9E7E] border-[#D4E6D5]"
+                    }`}>
+                      {getTempoPhaseText(timerSeconds)}
+                    </span>
+                  </div>
+                )}
 
                 {/* Set indicators */}
                 <div className="space-y-2">
