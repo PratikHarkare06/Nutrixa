@@ -70,6 +70,23 @@ export const uploadPantryImageRequest = async (
   return response.data;
 };
 
+export const uploadReceiptRequest = async (
+  file: File,
+  signal?: AbortSignal,
+) => {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await api.post("/upload/receipt", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    signal,
+  });
+
+  return response.data;
+};
+
 export const generateZeroWasteRecipeRequest = async (ingredients: string[]) => {
   const response = await api.post("/profile/zero-waste-recipe", { ingredients });
   return response.data;

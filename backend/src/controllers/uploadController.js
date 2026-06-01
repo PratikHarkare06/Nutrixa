@@ -233,7 +233,7 @@ const scanBarcode = async (req, res, next) => {
   }
 };
 
-const { analyzePantryWithGemini } = require("../services/geminiAnalysisService");
+const { analyzePantryWithGemini, analyzeReceiptWithGemini } = require("../services/geminiAnalysisService");
 const { UserProfile } = require("../models/UserProfile");
 
 const analyzePantryImage = async (req, res, next) => {
@@ -259,4 +259,30 @@ const analyzePantryImage = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadImage, correctIngredient, scanBarcode, analyzePantryImage };
+const analyzeReceiptImage = async (req, res, next) => {
+  if (!req.file) {
+    return next(createAppError(400, "FILE_REQUIRED", "Please choose an image of your receipt."));
+  }
+
+  try {
+    const result = await analyzeReceiptWithGemini(
+      req.file.path,
+      req.file.mimetype
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(createAppError(500, "UPLOAD_FAILED", "Failed to analyze receipt image. Please try again."));
+  }
+};
+
+module.exports = { 
+  uploadImage, 
+  correctIngredient, 
+  scanBarcode, 
+  analyzePantryImage,
+  analyzeReceiptImage
+};

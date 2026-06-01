@@ -82,13 +82,14 @@ type PantryPageProps = {
 
 export const PantryPage = ({ onNavigate }: PantryPageProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<"All" | "Fresh" | "Dry">("All");
   const [activeRecipe, setActiveRecipe] = useState<any | null>(null);
   const [isGeneratingZeroWaste, setIsGeneratingZeroWaste] = useState(false);
 
   // Add modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addMode, setAddMode] = useState<"image" | "barcode">("image");
+  const [addMode, setAddMode] = useState<"image" | "barcode" | "receipt">("image");
   const [isScanningBarcode, setIsScanningBarcode] = useState(false);
   const [barcodeError, setBarcodeError] = useState("");
 
@@ -112,7 +113,8 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
     scannedHistory,
     addScannedProductToHistory,
     clearScannedHistory,
-    scanBarcode
+    scanBarcode,
+    uploadReceipt
   } = useUploadStore();
 
   const handleBarcodeDetected = async (barcode: string) => {
@@ -141,6 +143,24 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
     if (e.target.files && e.target.files[0]) {
       setIsAddModalOpen(false);
       await uploadPantryImage(e.target.files[0]);
+    }
+  };
+
+  const triggerReceiptUpload = () => {
+    receiptInputRef.current?.click();
+  };
+
+  const handleReceiptFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const result = await uploadReceipt(file);
+      if (result && result.length > 0) {
+        addIngredientsToPantry(result);
+        alert(`Successfully added ${result.length} items from receipt: ${result.join(", ")}`);
+        setIsAddModalOpen(false);
+      } else {
+        alert("No items could be resolved from this receipt. Please try another image or add manually.");
+      }
     }
   };
 
@@ -1000,6 +1020,22 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
                 </svg>
                 Barcode Scan
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setBarcodeError("");
+                  setAddMode("receipt");
+                }}
+                className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all ${
+                  addMode === "receipt"
+                    ? "bg-[#9DB89F] text-white shadow-sm"
+                    : "text-textMuted hover:text-textHeading"
+                }`}
+              >
+                <span>🧾</span>
+                Receipt Scanner
+              </button>
             </div>
 
             <div className="mt-4">
@@ -1029,7 +1065,7 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
                     {isUploading ? progressMessage || "Uploading..." : "Choose Photo"}
                   </button>
                 </div>
-              ) : (
+              ) : addMode === "barcode" ? (
                 <div className="w-full flex flex-col items-center">
                   <BarcodeScanner
                     onDetected={handleBarcodeDetected}
@@ -1040,6 +1076,39 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
                       {barcodeError}
                     </div>
                   )}
+                </div>
+              ) : (
+                <div className="w-full flex flex-col items-center p-6 border border-dashed border-border hover:border-primary bg-[#F9FAF8] rounded-2xl transition-colors">
+                  <div className="w-12 h-12 rounded-full bg-[#FEF9EB] border border-[#F5E6C4] flex items-center justify-center mb-4 text-xl">
+                    🧾
+                  </div>
+                  <h3 className="text-sm font-bold text-textHeading mb-1">Scan Grocery Receipt</h3>
+                  <p className="text-xs text-textMuted text-center max-w-sm mb-6">
+                    Upload a photo of your shopping receipt, and AI will automatically identify and bulk-add all ingredients to your pantry.
+                  </p>
+                  
+                  <button
+                    type="button"
+                    onClick={triggerReceiptUpload}
+                    disabled={isUploading}
+                    className="px-6 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    {isUploading ? (
+                      <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                    )}
+                    {isUploading ? progressMessage || "Uploading..." : "Choose Receipt Image"}
+                  </button>
+                  <input
+                    type="file"
+                    ref={receiptInputRef}
+                    onChange={handleReceiptFileSelected}
+                    className="hidden"
+                    accept="image/*"
+                  />
                 </div>
               )}
             </div>

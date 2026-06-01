@@ -472,6 +472,50 @@ When answering the user, use this context to customize your replies. For example
   }
 };
 
+const analyzeReceiptWithGemini = async (imagePath, mimeType) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured in environment variables.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const imageBuffer = fs.readFileSync(imagePath);
+  const base64Image = imageBuffer.toString("base64");
+
+  const prompt = `You are a professional scanner AI. Analyze this grocery shopping receipt image.
+Identify all the food ingredients and grocery items purchased.
+For each item, return its clean, simple name in English (e.g. "spinach", "milk", "chicken breast", "eggs", "greek yogurt").
+Do not return quantities, brands, serial numbers, weights, or prices. Only return the simple, generic names of food ingredients.
+Please output ONLY a valid JSON array of strings:
+["item1", "item2", ...]
+Do not wrap it in any markdown blocks or return any additional text.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        prompt,
+        {
+          inlineData: {
+            data: base64Image,
+            mimeType: mimeType,
+          },
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    const parsed = JSON.parse(response.text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Gemini Receipt Analysis Error:", error);
+    throw new Error("Failed to analyze receipt image with Gemini.");
+  }
+};
+
 module.exports = { 
   analyzeFoodImageWithGemini, 
   getMealSuggestions, 
@@ -480,5 +524,6 @@ module.exports = {
   generateGroceryList,
   generateZeroWasteRecipeWithGemini,
   parseVoiceMealWithGemini,
-  generateChatResponse
+  generateChatResponse,
+  analyzeReceiptWithGemini
 };

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest } from "../services/uploadApi";
+import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest, uploadReceiptRequest } from "../services/uploadApi";
 import type { UploadAnalysis, PantryAnalysis } from "../types";
 
 export type ScannedProduct = {
@@ -30,6 +30,7 @@ type UploadState = {
   uploadVoiceLog: (transcript: string) => Promise<boolean>;
   addScannedProductToHistory: (barcode: string, name: string) => void;
   clearScannedHistory: () => void;
+  uploadReceipt: (file: File | null) => Promise<string[] | null>;
 };
 
 const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
@@ -308,5 +309,48 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     try {
       localStorage.removeItem("scannedHistory");
     } catch (e) {}
+  },
+  uploadReceipt: async (file) => {
+    const validationMessage = getClientValidationMessage(file);
+
+    if (validationMessage) {
+      set({ errorMessage: validationMessage });
+      return null;
+    }
+
+    if (!file) {
+      set({ errorMessage: "Please choose an image to upload." });
+      return null;
+    }
+
+    const controller = new AbortController();
+
+    set({
+      controller,
+      errorMessage: "",
+      progressMessage: "Analyzing receipt details...",
+      isUploading: true,
+    });
+
+    try {
+      const response = await uploadReceiptRequest(file, controller.signal);
+
+      set({
+        controller: null,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+
+      return response.data;
+    } catch (error) {
+      set({
+        controller: null,
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
+      return null;
+    }
   },
 }));
