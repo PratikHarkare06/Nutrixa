@@ -4,6 +4,7 @@ const { getProfile, saveProfile } = require("../controllers/profileController");
 const { uploadImage: uploadImageMiddleware } = require("../config/multer");
 const { uploadImage, correctIngredient, scanBarcode, analyzePantryImage } = require("../controllers/uploadController");
 const { parseVoiceLog } = require("../controllers/voiceLogController");
+const { handleChat } = require("../controllers/chatController");
 
 const { addClient } = require("../utils/progressTracker");
 
@@ -28,5 +29,6 @@ router.post("/upload/barcode", scanBarcode);
 router.post("/upload/pantry", uploadImageMiddleware, analyzePantryImage);
 router.post("/upload/voice-log", parseVoiceLog);
 router.post("/upload", uploadImageMiddleware, uploadImage);
+router.post("/chat", handleChat);
 
 module.exports = router;

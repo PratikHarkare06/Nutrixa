@@ -388,6 +388,89 @@ Do not return any markdown formatting outside of the JSON.`;
   }
 };
 
+const generateChatResponse = async (message, history = [], context = {}) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const contextString = `
+User Profile:
+- Name: ${context.profile?.name || "Alex"}
+- Age: ${context.profile?.age || "N/A"}
+- Gender: ${context.profile?.gender || "N/A"}
+- Height: ${context.profile?.height_cm || "N/A"} cm
+- Weight: ${context.profile?.weight_kg || "N/A"} kg
+- Activity Level: ${context.profile?.activity_level || "N/A"}
+- Diet Mode: ${context.profile?.diet_mode || "Balanced"}
+- Dietary Restrictions: ${context.profile?.dietary_restrictions?.join(", ") || "None"}
+- Allergies: ${context.profile?.food_allergies?.join(", ") || "None"}
+
+Current Pantry Ingredients:
+${context.pantryIngredients?.join(", ") || "None"}
+
+Today's Logged Meals:
+${context.todayMeals?.map(m => `- ${m.foods?.map(f => f.name).join(", ") || "Meal"} (${m.calories || 0} kcal, P: ${m.protein || 0}g, C: ${m.carbs || 0}g, F: ${m.fat || 0}g)`).join("\n") || "No meals logged today yet."}
+
+Nutritional Status Today:
+- Calories Logged: ${context.caloriesLogged || 0} kcal
+- Protein Logged: ${context.proteinLogged || 0} g
+- Carbs Logged: ${context.carbsLogged || 0} g
+- Fat Logged: ${context.fatLogged || 0} g
+
+Active Workout Plan:
+${context.profile?.workout_plan ? JSON.stringify(context.profile.workout_plan, null, 2) : "No workouts generated yet."}
+`;
+
+  const systemInstruction = `You are "NutriBot", a friendly, empathetic, and knowledgeable AI Nutritionist and health companion.
+Your job is to support the user in achieving their health goals, answering their questions, and offering highly personalized tips.
+You have access to the user's live health dashboard metrics, current pantry stocks, today's logged meals, and active workouts.
+
+Here is the current live context of the application:
+${contextString}
+
+When answering the user, use this context to customize your replies. For example:
+- If they ask what to cook, look at what they have in their Pantry.
+- If they ask if they are eating enough protein or calories, check their targets vs today's logged meals.
+- If they ask for workout tips, align it with their active workout plan.
+- Keep your tone warm, highly professional, encouraging, and clear.
+- Keep responses relatively brief (around 2-4 sentences or a short bulleted list where appropriate) so they look great in a small floating chat window.
+- Make sure to respect all their allergies (NEVER suggest ingredients they are allergic to) and dietary mode (e.g. Vegetarian, Keto, etc.).
+- Never mention "I have been given this context" or "According to the context string". Speak naturally, as if you are a real nutritionist accessing their live dashboard.`;
+
+  const contents = [];
+  
+  if (history && history.length > 0) {
+    history.forEach(msg => {
+      contents.push({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.text }]
+      });
+    });
+  }
+
+  contents.push({
+    role: "user",
+    parts: [{ text: message }]
+  });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents,
+      config: {
+        systemInstruction,
+        temperature: 0.7
+      }
+    });
+
+    return response.text;
+  } catch (error) {
+    console.error("Gemini Chat Response Error:", error);
+    throw new Error("Failed to generate chat response from Gemini.");
+  }
+};
+
 module.exports = { 
   analyzeFoodImageWithGemini, 
   getMealSuggestions, 
@@ -395,5 +478,6 @@ module.exports = {
   analyzePantryWithGemini, 
   generateGroceryList,
   generateZeroWasteRecipeWithGemini,
-  parseVoiceMealWithGemini
+  parseVoiceMealWithGemini,
+  generateChatResponse
 };

@@ -9,6 +9,7 @@ import { DietPlanPage } from "./pages/DietPlanPage";
 import { PantryPage } from "./pages/PantryPage";
 import { WorkoutPage } from "./pages/WorkoutPage";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
+import { ChatAssistant } from "./components/ChatAssistant";
 
 const getPathname = () => window.location.pathname || "/";
 
@@ -50,6 +51,7 @@ function App() {
         )}
       </main>
       <PWAInstallBanner />
+      <ChatAssistant />
     </div>
   );
 }
