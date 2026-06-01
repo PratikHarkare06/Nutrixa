@@ -96,6 +96,8 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [kitchenTimerSeconds, setKitchenTimerSeconds] = useState<number>(0);
   const [isKitchenTimerRunning, setIsKitchenTimerRunning] = useState<boolean>(false);
+  const [voiceControlEnabled, setVoiceControlEnabled] = useState<boolean>(false);
+  const [isListening, setIsListening] = useState<boolean>(false);
 
   const {
     pantryAnalysis,
@@ -185,6 +187,121 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
     }
     return () => clearInterval(interval);
   }, [isKitchenTimerRunning, kitchenTimerSeconds]);
+
+  // Continuous Speech Recognition for ChefVoice
+  useEffect(() => {
+    let recognition: any = null;
+    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognitionClass && activeRecipe && voiceControlEnabled) {
+      try {
+        recognition = new SpeechRecognitionClass();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = "en-US";
+
+        recognition.onstart = () => {
+          setIsListening(true);
+        };
+
+        recognition.onend = () => {
+          if (voiceControlEnabled && activeRecipe) {
+            try {
+              recognition.start();
+            } catch (err) {}
+          } else {
+            setIsListening(false);
+          }
+        };
+
+        recognition.onerror = () => {
+          setIsListening(false);
+        };
+
+        recognition.onresult = (event: any) => {
+          const resultIndex = event.resultIndex;
+          const transcript = event.results[resultIndex][0].transcript.toLowerCase().trim();
+          console.log("ChefVoice heard:", transcript);
+
+          // Handle command mappings
+          if (transcript.includes("next step") || transcript.includes("next") || transcript.includes("done") || transcript.includes("complete")) {
+            setCompletedSteps((prev) => {
+              const nextIdx = prev.length;
+              if (activeRecipe.instructions && nextIdx < activeRecipe.instructions.length) {
+                if ("speechSynthesis" in window) {
+                  window.speechSynthesis.cancel();
+                  window.speechSynthesis.speak(new SpeechSynthesisUtterance(`Step ${nextIdx + 1} completed`));
+                }
+                return [...prev, nextIdx];
+              }
+              return prev;
+            });
+          } else if (transcript.includes("previous") || transcript.includes("back") || transcript.includes("go back")) {
+            setCompletedSteps((prev) => {
+              if (prev.length > 0) {
+                if ("speechSynthesis" in window) {
+                  window.speechSynthesis.cancel();
+                  window.speechSynthesis.speak(new SpeechSynthesisUtterance("Step undone"));
+                }
+                return prev.slice(0, -1);
+              }
+              return prev;
+            });
+          } else if (transcript.includes("start timer") || transcript.includes("start")) {
+            setKitchenTimerSeconds((seconds) => {
+              if (seconds > 0) {
+                setIsKitchenTimerRunning(true);
+                if ("speechSynthesis" in window) {
+                  window.speechSynthesis.cancel();
+                  window.speechSynthesis.speak(new SpeechSynthesisUtterance("Timer started"));
+                }
+              } else {
+                if ("speechSynthesis" in window) {
+                  window.speechSynthesis.cancel();
+                  window.speechSynthesis.speak(new SpeechSynthesisUtterance("Please set a time first"));
+                }
+              }
+              return seconds;
+            });
+          } else if (transcript.includes("pause timer") || transcript.includes("pause")) {
+            setIsKitchenTimerRunning(false);
+            if ("speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              window.speechSynthesis.speak(new SpeechSynthesisUtterance("Timer paused"));
+            }
+          } else if (transcript.includes("reset timer") || transcript.includes("reset")) {
+            setIsKitchenTimerRunning(false);
+            setKitchenTimerSeconds(0);
+            if ("speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              window.speechSynthesis.speak(new SpeechSynthesisUtterance("Timer reset"));
+            }
+          } else if (transcript.includes("close recipe") || transcript.includes("close")) {
+            setActiveRecipe(null);
+            if ("speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              window.speechSynthesis.speak(new SpeechSynthesisUtterance("Recipe closed"));
+            }
+          }
+        };
+
+        recognition.start();
+      } catch (err) {
+        console.error("Failed to start speech recognition:", err);
+      }
+    } else {
+      setIsListening(false);
+    }
+
+    return () => {
+      if (recognition) {
+        recognition.onend = null;
+        try {
+          recognition.stop();
+        } catch (e) {}
+      }
+    };
+  }, [voiceControlEnabled, activeRecipe]);
 
   const triggerUpload = () => {
     fileInputRef.current?.click();
@@ -550,6 +667,22 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
                 className="w-full h-full object-cover rounded-t-[32px]"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent rounded-t-[32px]" />
+              {/* ChefVoice Toggle Button */}
+              <button
+                onClick={() => setVoiceControlEnabled(!voiceControlEnabled)}
+                className={`absolute top-4 left-4 px-3.5 py-2 rounded-full text-xs font-bold transition-all shadow-md flex items-center gap-1.5 z-10 ${
+                  voiceControlEnabled
+                    ? isListening
+                      ? "bg-rose-500 hover:bg-rose-600 text-white animate-pulse"
+                      : "bg-[#7A9E7E] hover:bg-[#5C7A60] text-white"
+                    : "bg-white/90 hover:bg-white text-textHeading border border-border"
+                }`}
+                title="Toggle ChefVoice hands-free control"
+              >
+                <span>🎙️</span>
+                <span>{voiceControlEnabled ? (isListening ? "ChefVoice: ON" : "Initializing...") : "ChefVoice Off"}</span>
+              </button>
+
               <button
                 onClick={() => setActiveRecipe(null)}
                 className="absolute top-4 right-4 bg-white/90 hover:bg-white text-textHeading font-bold w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-md text-sm z-10"
@@ -576,6 +709,24 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
                   {activeRecipe.description || "A delicious recipe perfect for your current pantry ingredients."}
                 </p>
               </div>
+
+              {/* ChefVoice Voice Assistant Helper Card */}
+              {voiceControlEnabled && (
+                <div className="bg-[#EBF2EB]/40 border border-[#7A9E7E]/30 rounded-2xl p-4 space-y-2 animate-fade-in">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">🗣️</span>
+                    <h4 className="text-xs font-bold text-[#7A9E7E] uppercase tracking-wider">ChefVoice Commands</h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-textMuted font-semibold">
+                    <div>• <span className="text-textHeading">"next" / "next step"</span>: Complete &amp; advance</div>
+                    <div>• <span className="text-textHeading">"back" / "previous"</span>: Undo previous step</div>
+                    <div>• <span className="text-textHeading">"start timer"</span>: Run countdown</div>
+                    <div>• <span className="text-textHeading">"pause timer"</span>: Halt countdown</div>
+                    <div>• <span className="text-textHeading">"reset timer"</span>: Wipe clock to 0</div>
+                    <div>• <span className="text-textHeading">"close recipe"</span>: Close this modal</div>
+                  </div>
+                </div>
+              )}
 
               {/* Macros Breakdown */}
               <div className="grid grid-cols-4 gap-3 bg-[#F5F6F1] p-4 rounded-2xl border border-border text-center">
