@@ -311,6 +311,7 @@ Do not return any markdown formatting or any other text outside the JSON.`;
       config: { responseMimeType: "application/json" },
     });
     return JSON.parse(response.text);
+  } catch (error) {
     console.error("Gemini Zero Waste Recipe Error:", error);
     throw new Error("Failed to generate zero waste recipe.");
   }
