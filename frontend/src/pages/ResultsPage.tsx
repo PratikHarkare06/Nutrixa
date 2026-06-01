@@ -46,8 +46,28 @@ const formatNumber = (value: number) => {
 export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const analysis = useUploadStore((state) => state.analysis);
   const addIngredientsToPantry = useUploadStore((state) => state.addIngredientsToPantry);
+  const deductIngredientsFromPantry = useUploadStore((state) => state.deductIngredientsFromPantry);
+  const pantryAnalysis = useUploadStore((state) => state.pantryAnalysis);
+  
   const [isSaved, setIsSaved] = useState(false);
+  const [isDeducted, setIsDeducted] = useState(false);
   const [isSimilarModalOpen, setIsSimilarModalOpen] = useState(false);
+
+  const currentPantry = useMemo(() => {
+    const defaultMockNames = ["Avocados", "Chicken Breast", "Quinoa", "Greek Yogurt", "Spinach"];
+    return pantryAnalysis ? pantryAnalysis.identifiedIngredients : defaultMockNames;
+  }, [pantryAnalysis]);
+
+  const matchingPantryItems = useMemo(() => {
+    if (!analysis) return [];
+    const scannedFoods = analysis.foods.map(f => f.name);
+    return scannedFoods.filter(foodName => 
+      currentPantry.some(p => 
+        p.toLowerCase().includes(foodName.toLowerCase()) ||
+        foodName.toLowerCase().includes(p.toLowerCase())
+      )
+    );
+  }, [analysis, currentPantry]);
 
   const chartData = useMemo(() => {
     if (!analysis) return [];
@@ -275,7 +295,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
           </section>
 
           {/* Quick Actions Shortcuts */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid gap-4 ${matchingPantryItems.length > 0 ? "grid-cols-3" : "grid-cols-2"}`}>
             <button 
               onClick={() => {
                 if (!analysis) return;
@@ -300,6 +320,34 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
               </div>
               <span className="text-xs font-bold text-textHeading">Similar Recipes</span>
             </button>
+
+            {matchingPantryItems.length > 0 && (
+              <button 
+                onClick={() => {
+                  if (isDeducted) return;
+                  deductIngredientsFromPantry(matchingPantryItems);
+                  setIsDeducted(true);
+                  alert(`Deducted ${matchingPantryItems.join(", ")} from your Pantry stock!`);
+                }}
+                disabled={isDeducted}
+                className={`border rounded-2xl p-4 text-center transition-all flex flex-col items-center justify-center gap-2 group ${
+                  isDeducted 
+                    ? "bg-[#FEF0EB]/60 border-[#FEE2D5] text-[#E8815A]" 
+                    : "bg-white hover:bg-surfaceAlt border-border hover:shadow-md cursor-pointer"
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  isDeducted 
+                    ? "bg-[#FEE2D5] text-[#E8815A]" 
+                    : "bg-[#FEF0EB] border border-[#FEE2D5] text-[#E8815A]"
+                }`}>
+                  {isDeducted ? "✓" : "🥣"}
+                </div>
+                <span className="text-xs font-bold">
+                  {isDeducted ? "Deducted Stock" : `Deduct (${matchingPantryItems.length}) Stock`}
+                </span>
+              </button>
+            )}
           </div>
 
         </div>
