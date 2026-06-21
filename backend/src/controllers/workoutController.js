@@ -1,7 +1,7 @@
 const { UserProfile, mapUserProfileToResponse } = require("../models/UserProfile");
 const { WorkoutLog } = require("../models/WorkoutLog");
 const { generateWorkoutPlanWithGemini } = require("../services/geminiWorkoutService");
-const { createAppError } = require("../middleware/errorHandler");
+const { createAppError } = require("../utils/createAppError");
 
 const profileFilter = { profile_key: "primary" };
 
