@@ -112,17 +112,17 @@ export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
   }, []);
 
   return (
-    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-4 sm:px-8 pt-8">
       
       {/* Top Header */}
       <header className="max-w-6xl mx-auto w-full mb-8">
-        <div className="flex justify-between items-center w-full">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between w-full">
           <div>
             <h1 className="text-3xl font-bold text-textHeading tracking-tight">Dietary Insights</h1>
             <p className="text-textMuted text-sm mt-1">Visualizing your nutrition trends over the last 30 days</p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-start sm:self-auto">
             {/* Timeframe Filter Pills */}
             <div className="bg-[#E2E4DC]/40 border border-border rounded-full p-1 flex">
               {(["7D", "30D", "90D"] as const).map((t) => (

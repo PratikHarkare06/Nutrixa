@@ -425,9 +425,9 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const recoveryScore = Math.min(100, Math.round((sleepHours / 8.0) * 45 + (hydrationML / 3000) * 35 + (recoveryCalorieBurn / 600) * 20));
 
   return (
-    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-4 sm:px-8 pt-8">
       {/* Header matching Workouts.png */}
-      <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+      <header className="max-w-6xl mx-auto w-full flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-textHeading tracking-tight">Fitness &amp; Training</h1>
           <p className="text-textMuted text-sm mt-1">
@@ -435,7 +435,7 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 relative">
+        <div className="flex items-center gap-3 relative self-start sm:self-auto">
           {/* Header Action Buttons */}
           <button 
             onClick={() => onNavigate?.("/history")}

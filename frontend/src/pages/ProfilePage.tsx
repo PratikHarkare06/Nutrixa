@@ -226,9 +226,9 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   ];
 
   return (
-    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-4 sm:px-8 pt-8">
       {/* Sub-view Header */}
-      <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+      <header className="max-w-6xl mx-auto w-full flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-textHeading tracking-tight">
             {showTracker ? "Transformation & Progress" : "My Profile"}
@@ -240,7 +240,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-start sm:self-auto">
           {showTracker ? (
             <button
               onClick={() => setShowTracker(false)}

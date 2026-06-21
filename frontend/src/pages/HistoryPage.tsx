@@ -162,16 +162,16 @@ export const HistoryPage = ({ onNavigate }: HistoryPageProps) => {
   const hasMore = historyItems.length > 0 && historyItems.length < pagination.total;
 
   return (
-    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-4 sm:px-8 pt-8">
       {/* Header */}
       <header className="max-w-6xl mx-auto w-full mb-8">
-        <div className="flex justify-between items-center w-full">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between w-full">
           <div>
             <h1 className="text-3xl font-bold text-textHeading tracking-tight">Meal History</h1>
             <p className="text-textMuted text-sm mt-1">Your journey through healthy eating</p>
           </div>
           <button
-            className="flex items-center gap-1.5 rounded-full bg-white border border-[#E2E4DC] hover:bg-surfaceAlt px-5 py-2.5 text-xs font-bold text-textHeading transition-colors shadow-sm"
+            className="self-start sm:self-auto flex items-center gap-1.5 rounded-full bg-white border border-[#E2E4DC] hover:bg-surfaceAlt px-5 py-2.5 text-xs font-bold text-textHeading transition-colors shadow-sm"
             type="button"
             onClick={() => onNavigate("/")}
           >

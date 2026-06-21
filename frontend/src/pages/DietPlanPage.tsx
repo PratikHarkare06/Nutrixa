@@ -61,13 +61,13 @@ export const DietPlanPage = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 min-h-screen bg-background pb-24 px-8 pt-8 animate-pulse">
-        <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+      <div className="flex-1 min-h-screen bg-background pb-24 px-4 sm:px-8 pt-8 animate-pulse">
+        <header className="max-w-6xl mx-auto w-full flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div className="space-y-2">
             <div className="h-8 w-48 bg-[#E2E4DC] rounded-xl" />
             <div className="h-4 w-72 bg-[#E2E4DC]/60 rounded-lg" />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-start sm:self-auto">
             <div className="h-10 w-32 bg-[#E2E4DC] rounded-full" />
             <div className="h-10 w-32 bg-[#E2E4DC] rounded-full" />
           </div>
@@ -168,16 +168,16 @@ export const DietPlanPage = () => {
   };
 
   return (
-    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-8 pt-8">
+    <div className="flex-1 min-h-screen bg-background relative overflow-y-auto pb-24 px-4 sm:px-8 pt-8">
       {/* Header */}
-      <header className="max-w-6xl mx-auto w-full flex justify-between items-center mb-8">
+      <header className="max-w-6xl mx-auto w-full flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-textHeading tracking-tight">Weekly Diet Plan</h1>
           <p className="text-textMuted text-sm mt-1">
             Your personalized nutrition strategy for weight loss.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
           <button
             onClick={handleGenerate}
             disabled={generating}
