@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 interface SidebarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 const getNavItems = (currentPath: string) => {
@@ -76,11 +78,35 @@ const getNavItems = (currentPath: string) => {
   ];
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, isOpen = false, onClose }) => {
   const isActive = (path: string) => {
     if (path === "/" && currentPath === "/") return true;
     if (path !== "/" && currentPath === path) return true;
     return false;
+  };
+
+  // Close sidebar on Escape key press
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && onClose) onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  const handleNavigate = (path: string) => {
+    onNavigate(path);
+    if (onClose) onClose(); // auto-close on mobile after tapping a nav item
   };
 
   const navItems = getNavItems(currentPath);
@@ -360,40 +386,73 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => 
   };
 
   return (
-    <aside className="w-[240px] min-h-screen bg-white border-r border-border flex flex-col shrink-0 shadow-sm">
-      {/* Logo */}
-      <div className="px-6 py-6 flex items-center gap-3">
-        <img
-          src="/nutrixa-logo.png"
-          alt="Nutrixa Logo"
-          className="w-10 h-10 object-contain rounded-xl"
+    <>
+      {/* ── Mobile backdrop overlay ── */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
         />
-        <span className="text-xl font-bold text-textHeading tracking-tight">{brandName}</span>
-      </div>
+      )}
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-2 flex flex-col gap-1">
-        {navItems.map((item) => {
-          const active = isActive(item.path);
-          return (
-            <button
-              key={item.path + item.label}
-              onClick={() => onNavigate(item.path)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all text-left
-                ${active
-                  ? "bg-[#9DB89F] text-white shadow-sm"
-                  : "text-textMuted hover:bg-[#F5F5F0] hover:text-textHeading"
-                }`}
-            >
-              <span className={active ? "text-white" : "text-[#888888]"}>{item.icon}</span>
-              {item.label}
-            </button>
-          );
-        })}
-      </nav>
+      {/* ── Sidebar panel ── */}
+      <aside
+        className={[
+          // Base styles
+          "bg-white border-r border-border flex flex-col shrink-0 shadow-sm",
+          // Desktop: always visible fixed column
+          "md:relative md:translate-x-0 md:w-[240px] md:min-h-screen md:z-auto",
+          // Mobile: fixed full-height drawer, slides from left
+          "fixed inset-y-0 left-0 z-50 w-[280px] transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        ].join(" ")}
+      >
+        {/* Logo + Mobile close button */}
+        <div className="px-6 py-6 flex items-center gap-3">
+          <img
+            src="/nutrixa-logo.png"
+            alt="Nutrixa Logo"
+            className="w-10 h-10 object-contain rounded-xl"
+          />
+          <span className="text-xl font-bold text-textHeading tracking-tight flex-1">{brandName}</span>
 
-      {/* Dynamic Streak/Report/Pro Widget */}
-      {renderSidebarWidget()}
-    </aside>
+          {/* Close button — only visible on mobile */}
+          <button
+            onClick={onClose}
+            aria-label="Close menu"
+            className="md:hidden flex items-center justify-center w-8 h-8 rounded-full bg-[#F5F5F0] hover:bg-[#E8E8E0] text-textMuted hover:text-textHeading transition-all"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="w-4 h-4">
+              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-2 flex flex-col gap-1 overflow-y-auto">
+          {navItems.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path + item.label}
+                onClick={() => handleNavigate(item.path)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all text-left
+                  ${active
+                    ? "bg-[#9DB89F] text-white shadow-sm"
+                    : "text-textMuted hover:bg-[#F5F5F0] hover:text-textHeading"
+                  }`}
+              >
+                <span className={active ? "text-white" : "text-[#888888]"}>{item.icon}</span>
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Dynamic Streak/Report/Pro Widget */}
+        {renderSidebarWidget()}
+      </aside>
+    </>
   );
 };
