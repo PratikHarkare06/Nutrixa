@@ -11,12 +11,16 @@ const { errorHandler } = require("./middleware/errorHandler");
 const app = express();
 const uploadsDirectory = path.join(__dirname, "..", "uploads");
 
+// Strip trailing slash from CORS_ORIGIN (common misconfiguration)
+const corsOrigin = (process.env.CORS_ORIGIN || "http://localhost:5173").replace(/\/$/, "");
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+    origin: corsOrigin,
     credentials: true,
   }),
 );
+
 app.use(express.json());
 app.use("/uploads", express.static(uploadsDirectory));
 
