@@ -429,7 +429,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
             </section>
           </div>
 
-          {/* Right Column: Daily Targets & Apple Health & Logout */}
+          {/* Right Column: Daily Targets & Logout */}
           <div className="space-y-8">
             {/* Badges & Achievements Showcase */}
             <BadgesShowcase xp={xp} level={level} unlockedBadges={unlockedBadges} />
@@ -483,25 +483,6 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
               </div>
             </section>
 
-            {/* Apple Health Connected Card */}
-            <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-rose shadow-sm">
-                  ⌚
-                </div>
-                <div>
-                  <h4 className="font-bold text-textHeading text-sm">Apple Health Connected</h4>
-                  <p className="text-xs text-textMuted mt-0.5">Synced 5 mins ago</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => alert("Syncing with Apple Health...")}
-                className="w-full py-2.5 bg-white border border-[#E2E4DC] hover:border-primary text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm"
-              >
-                Sync Now
-              </button>
-            </section>
 
             {/* Sign Out Button */}
             <button
