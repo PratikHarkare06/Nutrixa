@@ -184,9 +184,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
     setValue("dietaryRestrictions", nextRestrictions, { shouldDirty: true });
   };
 
-  const handleSignOut = () => {
-    alert("Signing out...");
-  };
+
 
   if (isLoading) {
     return (
@@ -429,7 +427,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
             </section>
           </div>
 
-          {/* Right Column: Daily Targets & Logout */}
+          {/* Right Column: Daily Targets */}
           <div className="space-y-8">
             {/* Badges & Achievements Showcase */}
             <BadgesShowcase xp={xp} level={level} unlockedBadges={unlockedBadges} />
@@ -484,13 +482,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
             </section>
 
 
-            {/* Sign Out Button */}
-            <button
-              onClick={handleSignOut}
-              className="w-full py-3.5 bg-[#E38F8F] hover:bg-[#D47A7A] text-white rounded-full text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
-            >
-              <span>🚪</span> Sign Out
-            </button>
+
           </div>
         </main>
       )}
