@@ -249,7 +249,7 @@ const parseVisionResponse = (text) => {
 // ─── Nvidia API Vision (backup for Gemini rate limits) ─────────────────────────
 
 const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") => {
-  const apiKey = (process.env.NVIDIA_API || process.env.NVIDIA_API_KEY || "").trim();
+  const apiKey = (process.env.NIM_API_KEY || process.env.NVIDIA_API || process.env.NVIDIA_API_KEY || "").trim();
   if (!apiKey) return null;
 
   try {
