@@ -16,6 +16,17 @@ try {
   console.error('[Anuvaad] Failed to load database:', error);
 }
 
+const cleanString = (str) => {
+  return str.toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\bparantha\b/g, 'paratha')
+    .replace(/\bbiriyani\b/g, 'biryani')
+    .replace(/\bchappati\b/g, 'chapati')
+    .replace(/\bchapatti\b/g, 'chapati')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 /**
  * Search the Anuvaad Indian Nutrient Database for a food item.
  * Uses a basic word-overlap scoring algorithm to find the best match.
@@ -23,8 +34,8 @@ try {
 const searchAnuvaadDb = (query) => {
   if (!anuvaadData || anuvaadData.length === 0) return null;
 
-  const cleanQuery = query.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-  const queryWords = cleanQuery.split(/\s+/).filter(w => w.length >= 2);
+  const cleanQuery = cleanString(query);
+  const queryWords = cleanQuery.split(' ').filter(w => w.length >= 2);
   if (queryWords.length === 0) return null;
 
   let bestMatch = null;
@@ -32,10 +43,10 @@ const searchAnuvaadDb = (query) => {
 
   for (const item of anuvaadData) {
     const rawName = item.food_name.toLowerCase();
-    const itemName = rawName.replace(/\s*\([^)]*\)/g, '').replace(/[^a-z0-9 ]/g, '').trim();
+    const itemName = cleanString(rawName);
     
     // Exact match is an instant win
-    if (itemName === cleanQuery || rawName === cleanQuery) {
+    if (itemName === cleanQuery || cleanString(item.food_name) === cleanQuery) {
       bestMatch = item;
       bestScore = 1.0;
       break;
@@ -46,7 +57,8 @@ const searchAnuvaadDb = (query) => {
       continue;
     }
 
-    const itemWords = itemName.split(/\s+/).filter(w => w.length >= 2);
+    // Get unique words in item to avoid duplicate word inflation
+    const itemWords = Array.from(new Set(itemName.split(' ').filter(w => w.length >= 2)));
     if (itemWords.length === 0) continue;
 
     // Check how many query words are present as full words in the item
@@ -59,12 +71,17 @@ const searchAnuvaadDb = (query) => {
 
     if (matches === 0) continue;
 
-    // Calculate Jaccard similarity (Intersection over Union of words)
-    const union = new Set([...queryWords, ...itemWords]).size;
-    const jaccard = matches / union;
+    const queryMatchRatio = matches / queryWords.length;
+    
+    // Soft penalty for unmatched extra words in the item name
+    const extraWords = Math.max(0, itemWords.length - matches);
+    const itemPenalty = 1 / (1 + 0.12 * extraWords);
 
     // Penalize matches where the item has critical words that the query doesn't
-    const modifiers = ["soup", "stew", "nog", "juice", "curry", "gravy", "powder", "sauce", "chutney", "pickle", "sandwich", "roll", "burger", "salad", "pizza"];
+    const modifiers = [
+      "soup", "stew", "nog", "juice", "curry", "gravy", "powder", "sauce", "chutney", "pickle", "sandwich", "roll", "burger", "salad", "pizza",
+      "dosa", "idli", "roti", "naan", "paratha", "rice", "biryani", "samosa", "khichdi", "upma", "poha", "dhokla", "vada", "pav"
+    ];
     let modifierPenalty = 1.0;
     for (const mod of modifiers) {
       if (itemWords.includes(mod) && !queryWords.includes(mod)) {
@@ -72,7 +89,7 @@ const searchAnuvaadDb = (query) => {
       }
     }
 
-    const score = jaccard * modifierPenalty;
+    const score = queryMatchRatio * itemPenalty * modifierPenalty;
 
     if (score > bestScore && score >= 0.5) {
       bestScore = score;
