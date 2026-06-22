@@ -23,46 +23,64 @@ try {
 const searchAnuvaadDb = (query) => {
   if (!anuvaadData || anuvaadData.length === 0) return null;
 
-  const queryWords = query.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(' ').filter(w => w.length > 2);
+  const cleanQuery = query.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  const queryWords = cleanQuery.split(/\s+/).filter(w => w.length >= 2);
   if (queryWords.length === 0) return null;
 
   let bestMatch = null;
   let bestScore = 0;
 
   for (const item of anuvaadData) {
-    // Strip Hindi translations in parentheses for fair length comparisons
     const rawName = item.food_name.toLowerCase();
-    const itemName = rawName.replace(/\s*\([^)]*\)/g, '').trim();
+    const itemName = rawName.replace(/\s*\([^)]*\)/g, '').replace(/[^a-z0-9 ]/g, '').trim();
     
     // Exact match is an instant win
-    if (itemName === query.toLowerCase() || rawName === query.toLowerCase()) {
+    if (itemName === cleanQuery || rawName === cleanQuery) {
       bestMatch = item;
-      bestScore = 100;
+      bestScore = 1.0;
       break;
     }
 
-    // Otherwise calculate word overlap
+    // For single-word queries, only allow exact match to prevent incorrect mapping
+    if (queryWords.length < 2) {
+      continue;
+    }
+
+    const itemWords = itemName.split(/\s+/).filter(w => w.length >= 2);
+    if (itemWords.length === 0) continue;
+
+    // Check how many query words are present as full words in the item
     let matches = 0;
-    for (const word of queryWords) {
-      if (itemName.includes(word)) {
+    for (const qWord of queryWords) {
+      if (itemWords.includes(qWord)) {
         matches += 1;
       }
     }
 
-    // Score based on percentage of query words matched
-    const score = matches / queryWords.length;
-    
-    // Penalize if the target name is extremely long compared to the query
-    const lengthPenalty = Math.max(1, itemName.length / (query.length + 5));
-    const finalScore = score / lengthPenalty;
+    if (matches === 0) continue;
 
-    if (finalScore > bestScore && finalScore > 0.6) {
-      bestScore = finalScore;
+    // Calculate Jaccard similarity (Intersection over Union of words)
+    const union = new Set([...queryWords, ...itemWords]).size;
+    const jaccard = matches / union;
+
+    // Penalize matches where the item has critical words that the query doesn't
+    const modifiers = ["soup", "stew", "nog", "juice", "curry", "gravy", "powder", "sauce", "chutney", "pickle", "sandwich", "roll", "burger", "salad", "pizza"];
+    let modifierPenalty = 1.0;
+    for (const mod of modifiers) {
+      if (itemWords.includes(mod) && !queryWords.includes(mod)) {
+        modifierPenalty = 0.15;
+      }
+    }
+
+    const score = jaccard * modifierPenalty;
+
+    if (score > bestScore && score >= 0.5) {
+      bestScore = score;
       bestMatch = item;
     }
   }
 
-  if (bestMatch && bestScore > 0.6) {
+  if (bestMatch && bestScore >= 0.5) {
     // Map it to standard output format expected by validateNutrition
     return {
       name: bestMatch.food_name,
