@@ -265,17 +265,22 @@ const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") =>
       },
       body: JSON.stringify({
         model,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: buildVisionPrompt(userMealType) },
-            { type: "image_url", image_url: { url: dataUrl } },
-          ],
-        }],
-        temperature: 1.00,
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional nutrition and culinary assistant. You MUST respond with ONLY a valid, parseable JSON object matching the requested schema. Do not include any conversational text, markdown block wrapping (such as ```json), or explanations outside of the raw JSON."
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: buildVisionPrompt(userMealType) },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          }
+        ],
+        temperature: 0.1,
         top_p: 0.95,
         max_tokens: 4096,
-        chat_template_kwargs: { enable_thinking: true },
       }),
     });
 

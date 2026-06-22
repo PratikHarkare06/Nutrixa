@@ -12,6 +12,13 @@ const callNvidiaNim = async (prompt, imagePath = null, mimeType = null) => {
     : (process.env.NVIDIA_MODEL || "google/gemma-4-31b-it");
   const messages = [];
 
+  if (isVision) {
+    messages.push({
+      role: "system",
+      content: "You are a professional nutrition and culinary assistant. You MUST respond with ONLY a valid, parseable JSON object or array matching the requested schema. Do not include any conversational text, markdown block wrapping (such as ```json), or explanations outside of the raw JSON."
+    });
+  }
+
   if (imagePath && mimeType) {
     const base64Image = fs.readFileSync(imagePath).toString("base64");
     const dataUrl = `data:${mimeType};base64,${base64Image}`;
@@ -29,20 +36,25 @@ const callNvidiaNim = async (prompt, imagePath = null, mimeType = null) => {
     });
   }
 
+  const bodyPayload = {
+    model,
+    messages,
+    temperature: isVision ? 0.1 : 1.00,
+    top_p: 0.95,
+    max_tokens: 4096,
+  };
+
+  if (!isVision) {
+    bodyPayload.chat_template_kwargs = { enable_thinking: true };
+  }
+
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 1.00,
-      top_p: 0.95,
-      max_tokens: 4096,
-      chat_template_kwargs: { enable_thinking: true },
-    }),
+    body: JSON.stringify(bodyPayload),
   });
 
   if (!res.ok) {
