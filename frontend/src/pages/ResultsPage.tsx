@@ -9,6 +9,7 @@ import {
   ShareIcon,
 } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
+import { handleImageError } from "../utils/imageHelper";
 
 type ResultsPageProps = {
   onBack: () => void;
@@ -151,6 +152,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
             <img 
               src={analysis.imageUrl} 
               alt="Scanned Food" 
+              onError={(e) => handleImageError(e, analysis.foods[0]?.name || "Meal")}
               className="w-full h-80 object-cover"
             />
             {/* Translucent Banner */}

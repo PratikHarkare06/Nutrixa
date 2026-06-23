@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchHistoryRequest, getHistoryErrorMessage } from "../services/historyApi";
 import { useUploadStore } from "../store/uploadStore";
 import type { HistoryPagination, UploadAnalysis } from "../types";
+import { handleImageError } from "../utils/imageHelper";
 import { BarChart, Bar, ResponsiveContainer, XAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import {
   CameraIcon,
@@ -254,6 +255,7 @@ export const HistoryPage = ({ onNavigate }: HistoryPageProps) => {
                     <img
                       src={item.imageUrl}
                       alt={displayName}
+                      onError={(e) => handleImageError(e, displayName)}
                       className="h-20 w-20 rounded-2xl object-cover shrink-0"
                     />
                     <div className="flex-1 min-w-0">
