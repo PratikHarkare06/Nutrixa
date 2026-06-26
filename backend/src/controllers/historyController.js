@@ -66,11 +66,19 @@ const addWater = async (req, res, next) => {
     }
 
     const today = new Date().toISOString().split("T")[0];
-    const entry = await DailyWater.findOneAndUpdate(
+    let entry = await DailyWater.findOneAndUpdate(
       { date: today },
       { $inc: { water_intake_ml: amount_ml } },
       { new: true, upsert: true }
     );
+
+    if (entry.water_intake_ml < 0) {
+      entry = await DailyWater.findOneAndUpdate(
+        { date: today },
+        { $set: { water_intake_ml: 0 } },
+        { new: true }
+      );
+    }
 
     // Gamification
     await awardXP(null, "LOG_WATER", amount_ml);

@@ -4,7 +4,8 @@ import { useUploadStore } from "../store/uploadStore";
 import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import { SearchIcon, FireIcon, WaterIcon, CameraIcon, SpinnerIcon, CloseIcon } from "../components/icons";
 import { BarcodeScanner } from "../components/BarcodeScanner";
-import { fetchHistoryRequest } from "../services/historyApi";
+import { fetchHistoryRequest, addWaterRequest } from "../services/historyApi";
+import { fetchDashboardStatsRequest, updateWorkoutIntensityRequest } from "../services/profileApi";
 
 type DashboardPageProps = {
   onUploadSuccess: () => void;
@@ -47,10 +48,10 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const progressMessage = useUploadStore((state) => state.progressMessage);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [hydrationML, setHydrationML] = useState(1800); // 1.8L
+  const [hydrationML, setHydrationML] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([
-    { id: 1, type: "streak", emoji: "⭐", bg: "#EBF2EB", border: "#D4E6D5", titleColor: "#2C3E2B", textColor: "#2C3E2B", title: "7 Day Streak!", text: "Alex, you have maintained a 7-day food logging consistency." },
+    { id: 1, type: "streak", emoji: "⭐", bg: "#EBF2EB", border: "#D4E6D5", titleColor: "#2C3E2B", textColor: "#2C3E2B", title: "0 Day Streak!", text: "Alex, you have maintained a 0-day food logging consistency." },
     { id: 2, type: "water", emoji: "💧", bg: "#FEF0EB", border: "#FEE2D5", titleColor: "#E8815A", textColor: "#E8815A", title: "Hydration Target", text: "Don't forget to log 500ml water after your lunch." },
     { id: 3, type: "workout", emoji: "🏋️‍♂️", bg: "#EBF2F8", border: "#E2E4DC", titleColor: "#2C3E2B", textColor: "#888888", title: "Workout Logged", text: "3 workout sessions synchronized from Apple Health." }
   ]);
@@ -64,7 +65,11 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
 
   // Dynamic Hydration Coach state
   const [workoutIntensity, setWorkoutIntensity] = useState<"rest" | "light" | "moderate" | "intense">("moderate");
-  const [hydrationStreak, setHydrationStreak] = useState(5); // days
+  const [hydrationStreak, setHydrationStreak] = useState(0);
+  const [weeklyHydration, setWeeklyHydration] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [mealStreak, setMealStreak] = useState(0);
+  const [mealLogsWeek, setMealLogsWeek] = useState<boolean[]>([false, false, false, false, false, false, false]);
+  const [consistencyScore, setConsistencyScore] = useState(0);
 
   const HYDRATION_GOALS: Record<string, number> = {
     rest: 2000,
@@ -74,7 +79,39 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   };
   const waterGoal = HYDRATION_GOALS[workoutIntensity];
 
-  // Time-of-day segments (08:00-12:00, 12:00-17:00, 17:00-21:00)
+  const loadDashboardStats = async () => {
+    try {
+      const res = await fetchDashboardStatsRequest();
+      if (res.success) {
+        const d = res.data;
+        setHydrationML(d.hydrationML);
+        setWorkoutIntensity(d.workoutIntensity);
+        setHydrationStreak(d.hydrationStreak);
+        setWeeklyHydration(d.weeklyHydration || [0,0,0,0,0,0,0]);
+        setMealStreak(d.mealStreak);
+        setMealLogsWeek(d.mealLogsWeek || [false,false,false,false,false,false,false]);
+        setConsistencyScore(d.consistencyScore);
+
+        setNotifications(prev => prev.map(n => {
+          if (n.type === "streak") {
+            return {
+              ...n,
+              title: `${d.mealStreak} Day Streak!`,
+              text: `Alex, you have maintained a ${d.mealStreak}-day food logging consistency.`
+            };
+          }
+          return n;
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard stats", err);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardStats();
+  }, []);
+
   const getTimeSegments = (totalMl: number, goal: number) => {
     const now = new Date();
     const hour = now.getHours();
@@ -291,12 +328,38 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
     }
   };
 
-  const handleAddWater = (amount: number) => {
-    setHydrationML((prev) => Math.min(waterGoal, prev + amount));
+  const handleAddWater = async (amount: number) => {
+    try {
+      const res = await addWaterRequest(amount);
+      if (res.success) {
+        await loadDashboardStats();
+      }
+    } catch (err) {
+      console.error("Failed to log water", err);
+    }
   };
 
-  const handleSubtractWater = () => {
-    setHydrationML((prev) => Math.max(0, prev - 250));
+  const handleSubtractWater = async () => {
+    try {
+      const res = await addWaterRequest(-250);
+      if (res.success) {
+        await loadDashboardStats();
+      }
+    } catch (err) {
+      console.error("Failed to log water", err);
+    }
+  };
+
+  const handleIntensityChange = async (intensity: "rest" | "light" | "moderate" | "intense") => {
+    setWorkoutIntensity(intensity);
+    try {
+      const res = await updateWorkoutIntensityRequest(intensity);
+      if (res.success) {
+        await loadDashboardStats();
+      }
+    } catch (err) {
+      console.error("Failed to update workout intensity", err);
+    }
   };
 
   const hydrationPercent = Math.min(100, Math.round((hydrationML / waterGoal) * 100));
@@ -506,7 +569,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                 ] as const).map(({ key, label, emoji, color }) => (
                   <button
                     key={key}
-                    onClick={() => setWorkoutIntensity(key)}
+                    onClick={() => handleIntensityChange(key)}
                     className={`flex-1 py-2 rounded-xl text-[10px] font-bold border transition-all flex flex-col items-center gap-0.5 ${
                       workoutIntensity === key
                         ? "bg-white border-[2px] shadow-md"
@@ -772,7 +835,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-black text-[#E8815A]">7</span>
+                <span className="text-2xl font-black text-[#E8815A]">{mealStreak}</span>
                 <p className="text-[9px] text-textMuted font-bold uppercase">day streak</p>
               </div>
             </div>
@@ -780,8 +843,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
             {/* Weekly Heatmap */}
             <div className="flex gap-1.5 mb-4">
               {["M","T","W","T","F","S","S"].map((day, i) => {
-                // Mock: 7-day streak means all days are logged
-                const logged = i < 7;
+                const logged = mealLogsWeek[i];
                 const isToday = i === new Date().getDay() - 1 || (new Date().getDay() === 0 && i === 6);
                 return (
                   <div key={`${day}-${i}`} className="flex-1 flex flex-col items-center gap-1">
@@ -811,15 +873,15 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                     cx="18" cy="18" r="15" fill="none"
                     stroke="#9DB89F" strokeWidth="3"
                     strokeLinecap="round"
-                    strokeDasharray={`${85 * 0.942} ${100 * 0.942}`}
+                    strokeDasharray={`${consistencyScore * 0.942} ${100 * 0.942}`}
                   />
                 </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-[#2C3E2B]">85%</span>
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-[#2C3E2B]">{consistencyScore}%</span>
               </div>
               <div className="flex-1">
                 <p className="text-xs font-bold text-textHeading">Consistency Score</p>
                 <p className="text-[10px] text-textMuted leading-relaxed mt-0.5">
-                  You've logged meals 6 out of 7 days this week. One more day to hit a perfect week! 🎯
+                  You've maintained a {consistencyScore}% food logging consistency over the last 7 days! Keep it up! 🎯
                 </p>
               </div>
             </div>

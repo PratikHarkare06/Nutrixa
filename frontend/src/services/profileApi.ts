@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import type { ApiErrorResponse, ProfileSuccessResponse, UserProfile, ProgressLog, GroceryCategory, PantryRecipe } from "../types";
+import type { ApiErrorResponse, ProfileSuccessResponse, UserProfile, ProgressLog, GroceryCategory, PantryRecipe, SleepLog, DailyDietPlan } from "../types";
 import { API_BASE_URL } from "./apiConfig";
 
 const profileApi = axios.create({
@@ -74,11 +74,24 @@ export const generatePantryRecipesRequest = async (
   return response.data;
 };
 
-export const uploadProgressLogRequest = async (weight_kg: number, date: string, notes: string, file?: File | null): Promise<{ success: boolean; data: ProgressLog }> => {
+export const uploadProgressLogRequest = async (
+  weight_kg: number, 
+  date: string, 
+  notes: string, 
+  file?: File | null,
+  body_fat_pct?: number | null,
+  muscle_mass_kg?: number | null
+): Promise<{ success: boolean; data: ProgressLog }> => {
   const formData = new FormData();
   formData.append("weight_kg", weight_kg.toString());
   formData.append("date", date);
   if (notes) formData.append("notes", notes);
+  if (body_fat_pct !== undefined && body_fat_pct !== null) {
+    formData.append("body_fat_pct", body_fat_pct.toString());
+  }
+  if (muscle_mass_kg !== undefined && muscle_mass_kg !== null) {
+    formData.append("muscle_mass_kg", muscle_mass_kg.toString());
+  }
   if (file) {
     formData.append("image", file);
   }
@@ -102,6 +115,59 @@ export const fetchAllergenSubstitutesRequest = async (
     allergies,
     restrictions,
   }, { signal });
+  return response.data;
+};
+
+export const fetchDashboardStatsRequest = async (): Promise<{
+  success: boolean;
+  data: {
+    workoutIntensity: "rest" | "light" | "moderate" | "intense";
+    waterGoal: number;
+    hydrationML: number;
+    hydrationStreak: number;
+    weeklyHydration: number[];
+    mealStreak: number;
+    mealLogsWeek: boolean[];
+    consistencyScore: number;
+  };
+}> => {
+  const response = await profileApi.get("/profile/dashboard-stats");
+  return response.data;
+};
+
+export const updateWorkoutIntensityRequest = async (intensity: string): Promise<{ success: boolean; data: UserProfile }> => {
+  const response = await profileApi.post("/profile/workout-intensity", { intensity });
+  return response.data;
+};
+
+export const modifyDietPlanMealRequest = async (
+  day: string,
+  mealIndex: number,
+  prompt: string
+): Promise<{ success: boolean; data: DailyDietPlan[] }> => {
+  const response = await profileApi.post("/profile/diet-plan/modify-meal", { day, mealIndex, prompt });
+  return response.data;
+};
+
+export const fetchSleepLogsRequest = async (): Promise<{ success: boolean; data: SleepLog[] }> => {
+  const response = await profileApi.get("/sleep");
+  return response.data;
+};
+
+export const logSleepRequest = async (payload: {
+  date: string;
+  duration_hours: number;
+  quality_score: number;
+  deep_sleep_hours?: number;
+  rem_sleep_hours?: number;
+  notes?: string;
+}): Promise<{ success: boolean; data: SleepLog }> => {
+  const response = await profileApi.post("/sleep", payload);
+  return response.data;
+};
+
+export const fetchSleepInsightsRequest = async (): Promise<{ success: boolean; data: string }> => {
+  const response = await profileApi.post("/sleep/insights");
   return response.data;
 };
 

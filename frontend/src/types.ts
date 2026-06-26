@@ -124,9 +124,22 @@ export type ProgressLog = {
   _id: string;
   date: string;
   weight_kg: number;
+  body_fat_pct?: number | null;
+  muscle_mass_kg?: number | null;
   image_url: string | null;
   notes: string;
   created_at: string;
+};
+
+export type SleepLog = {
+  _id?: string;
+  date: string;
+  duration_hours: number;
+  quality_score: number;
+  deep_sleep_hours?: number;
+  rem_sleep_hours?: number;
+  notes?: string;
+  created_at?: string;
 };
 
 export type GroceryItem = {

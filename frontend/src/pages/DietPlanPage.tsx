@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchProfileRequest, generateDietPlanRequest, generateGroceryListRequest } from "../services/profileApi";
+import { fetchProfileRequest, generateDietPlanRequest, generateGroceryListRequest, modifyDietPlanMealRequest } from "../services/profileApi";
 import type { UserProfile, DailyDietPlan } from "../types";
 import { SparklesIcon, CalendarIcon, BoltIcon, FireIcon, ProteinIcon } from "../components/icons";
 import { GroceryListModal } from "../components/GroceryListModal";
@@ -13,6 +13,38 @@ export const DietPlanPage = () => {
   const [groceryList, setGroceryList] = useState<any[]>([]);
   const [isGroceryLoading, setIsGroceryLoading] = useState(false);
   const [isGroceryOpen, setIsGroceryOpen] = useState(false);
+
+  // AI Meal Swapper state
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [swapPrompt, setSwapPrompt] = useState("");
+  const [swapDay, setSwapDay] = useState("");
+  const [swapIndex, setSwapIndex] = useState<number>(0);
+  const [isSwapping, setIsSwapping] = useState(false);
+
+  const handleOpenSwapModal = (day: string, idx: number) => {
+    setSwapDay(day);
+    setSwapIndex(idx);
+    setSwapPrompt("");
+    setIsSwapModalOpen(true);
+  };
+
+  const handleSwapMeal = async () => {
+    if (!swapPrompt.trim() || !swapDay) return;
+    setIsSwapping(true);
+    setError(null);
+    try {
+      const res = await modifyDietPlanMealRequest(swapDay, swapIndex, swapPrompt);
+      if (res.success) {
+        setProfile(prev => prev ? { ...prev, dietPlan: res.data } : null);
+        setIsSwapModalOpen(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.response?.data?.error?.message || "Failed to customize meal.");
+    } finally {
+      setIsSwapping(false);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -310,7 +342,16 @@ export const DietPlanPage = () => {
                           {meal.type.toLowerCase().includes("breakfast") ? "08:00 AM" : meal.type.toLowerCase().includes("lunch") ? "01:00 PM" : "07:30 PM"}
                         </span>
                       </div>
-                      <button className="text-textMuted hover:text-textHeading text-base leading-none">⋮</button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenSwapModal(selectedDay, idx)}
+                          title="Modify meal with AI"
+                          className="text-[#7A9E7E] hover:text-[#2C3E2B] transition-colors p-1"
+                        >
+                          <SparklesIcon className="w-3.5 h-3.5" />
+                        </button>
+                        <button className="text-textMuted hover:text-textHeading text-base leading-none">⋮</button>
+                      </div>
                     </div>
 
                     <h3 className="font-bold text-textHeading text-base mt-1.5 truncate">{meal.name}</h3>
@@ -353,6 +394,57 @@ export const DietPlanPage = () => {
         onClose={() => setIsGroceryOpen(false)} 
         list={groceryList} 
       />
+
+      {isSwapModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white border border-border rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-extrabold text-textHeading text-lg flex items-center gap-1.5">
+                <SparklesIcon className="w-5 h-5 text-[#9DB89F]" />
+                Modify Meal with AI
+              </h3>
+              <button
+                onClick={() => setIsSwapModalOpen(false)}
+                className="text-textMuted hover:text-textHeading font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-textMuted leading-relaxed">
+              Describe how you want to customize this meal (e.g. "I want a high protein eggless version", "use whole wheat bread instead of idli").
+            </p>
+            <textarea
+              value={swapPrompt}
+              onChange={(e) => setSwapPrompt(e.target.value)}
+              placeholder="e.g. swap with a low carb vegetarian alternative"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-textHeading focus:border-[#7A9E7E] focus:outline-none text-sm resize-none"
+              rows={3}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsSwapModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold hover:bg-background transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSwapMeal}
+                disabled={isSwapping || !swapPrompt.trim()}
+                className="flex-1 py-2.5 bg-[#9DB89F] hover:bg-[#7A9E7E] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-1.5"
+              >
+                {isSwapping ? (
+                  <>
+                    <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+                    Swapping...
+                  </>
+                ) : (
+                  "Customize Meal"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

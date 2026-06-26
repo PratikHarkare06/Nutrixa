@@ -6,6 +6,7 @@ const uploadRoutes = require("./routes/uploadRoutes");
 const historyRoutes = require("./routes/historyRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const workoutRoutes = require("./routes/workoutRoutes");
+const sleepRoutes = require("./routes/sleepRoutes");
 const { errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -28,6 +29,7 @@ app.use("/api", uploadRoutes);
 app.use("/api/history", historyRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/workout", workoutRoutes);
+app.use("/api/sleep", sleepRoutes);
 app.use(errorHandler);
 
 module.exports = app;

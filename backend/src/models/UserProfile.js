@@ -106,6 +106,11 @@ const userProfileSchema = new mongoose.Schema(
       type: Number,
       default: 2500,
     },
+    workout_intensity: {
+      type: String,
+      enum: ["rest", "light", "moderate", "intense"],
+      default: "moderate",
+    },
     xp: {
       type: Number,
       default: 0,
@@ -146,6 +151,7 @@ const defaultUserProfile = {
   updatedAt: new Date(0).toISOString(),
   weight: 62,
   waterGoalMl: 2500,
+  workoutIntensity: "moderate",
   xp: 0,
   level: 1,
   unlockedBadges: [],
@@ -209,6 +215,7 @@ const mapUserProfileToResponse = (profile) => {
     updatedAt: profile.updated_at,
     weight: profile.weight_kg,
     waterGoalMl: profile.water_goal_ml || 2500,
+    workoutIntensity: profile.workout_intensity || "moderate",
     xp: profile.xp || 0,
     level: profile.level || 1,
     unlockedBadges: profile.unlocked_badges || [],

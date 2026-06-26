@@ -8,6 +8,7 @@ import { ResultsPage } from "./pages/ResultsPage";
 import { DietPlanPage } from "./pages/DietPlanPage";
 import { PantryPage } from "./pages/PantryPage";
 import { WorkoutPage } from "./pages/WorkoutPage";
+import { SleepPage } from "./pages/SleepPage";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { ChatAssistant } from "./components/ChatAssistant";
 import { ToastProvider } from "./components/Toast";
@@ -72,6 +73,8 @@ function App() {
             <PantryPage onNavigate={navigate} />
           ) : pathname === "/workouts" ? (
             <WorkoutPage onNavigate={navigate} />
+          ) : pathname === "/sleep" ? (
+            <SleepPage />
           ) : (
             <DashboardPage onUploadSuccess={() => navigate("/results")} onNavigate={navigate} />
           )}

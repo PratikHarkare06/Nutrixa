@@ -10,6 +10,14 @@ const progressLogSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    body_fat_pct: {
+      type: Number,
+      default: null,
+    },
+    muscle_mass_kg: {
+      type: Number,
+      default: null,
+    },
     image_url: {
       type: String,
       default: null,

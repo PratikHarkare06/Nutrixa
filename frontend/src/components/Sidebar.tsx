@@ -66,6 +66,12 @@ const getNavItems = (currentPath: string) => {
     </svg>
   );
 
+  const sleepIcon = (
+    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
   return [
     { path: "/", label: "Overview", icon: overviewIcon },
     ...(currentPath === "/results" ? [{ path: "/results", label: "Results", icon: resultsIcon }] : []),
@@ -73,6 +79,7 @@ const getNavItems = (currentPath: string) => {
     { path: "/diet-plan", label: "Meal Planner", icon: mealPlannerIcon },
     { path: "/insights", label: "Insights", icon: analyticsIcon },
     { path: "/workouts", label: "Workouts", icon: workoutsIcon },
+    { path: "/sleep", label: "Sleep Tracker", icon: sleepIcon },
     { path: "/history", label: "History", icon: historyIcon },
     { path: "/profile", label: "Profile", icon: profileIcon },
   ];
