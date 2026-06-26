@@ -4,6 +4,7 @@ import { useUploadStore } from "../store/uploadStore";
 import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import { SearchIcon, FireIcon, WaterIcon, CameraIcon, SpinnerIcon, CloseIcon } from "../components/icons";
 import { BarcodeScanner } from "../components/BarcodeScanner";
+import { fetchHistoryRequest } from "../services/historyApi";
 
 type DashboardPageProps = {
   onUploadSuccess: () => void;
@@ -54,6 +55,13 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
     { id: 3, type: "workout", emoji: "🏋️‍♂️", bg: "#EBF2F8", border: "#E2E4DC", titleColor: "#2C3E2B", textColor: "#888888", title: "Workout Logged", text: "3 workout sessions synchronized from Apple Health." }
   ]);
 
+  // Daily AI Macro Advisor state
+  const [todayMacros, setTodayMacros] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const [macroAdvice, setMacroAdvice] = useState("");
+
+  // Goals (approximate defaults matching Nutrixa targets)
+  const GOALS = { calories: 1900, protein: 120, carbs: 200, fat: 60 };
+
   // Voice & Barcode Logging States
   const [loggingMode, setLoggingMode] = useState<"image" | "voice" | "barcode">("image");
   const [voiceTranscript, setVoiceTranscript] = useState("");
@@ -70,6 +78,61 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
       }
     };
   }, [cancelUpload]);
+
+  // Fetch today's meal logs to build the AI Macro Advisor card
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadTodayMacros = async () => {
+      try {
+        const res = await fetchHistoryRequest({ limit: 20, page: 1, sort: "desc", signal: controller.signal });
+        const today = new Date().toDateString();
+        const todayEntries = (res.data || []).filter((e: any) => new Date(e.createdAt).toDateString() === today);
+        const totals = todayEntries.reduce(
+          (acc: any, e: any) => ({
+            calories: acc.calories + (e.macros?.calories || 0),
+            protein: acc.protein + (e.macros?.protein || 0),
+            carbs: acc.carbs + (e.macros?.carbs || 0),
+            fat: acc.fat + (e.macros?.fat || 0),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        );
+        setTodayMacros({
+          calories: Math.round(totals.calories),
+          protein: Math.round(totals.protein),
+          carbs: Math.round(totals.carbs),
+          fat: Math.round(totals.fat),
+        });
+
+        // Generate adaptive advice
+        const pctProt = (totals.protein / 120) * 100;
+        const pctCarbs = (totals.carbs / 200) * 100;
+        const pctFat = (totals.fat / 60) * 100;
+        const pctCal = (totals.calories / 1900) * 100;
+
+        let advice = "";
+        if (pctProt < 30 && pctCarbs > 60) {
+          advice = "You're heavy on carbs but low on protein today. Try adding a lean protein source like grilled chicken, eggs, or Greek yogurt to your next meal.";
+        } else if (pctProt > 90 && pctCarbs < 40) {
+          advice = "Great protein intake! Your carbs are still low — consider adding a complex carb like brown rice or oats to fuel your evening workout.";
+        } else if (pctFat > 90 && pctCal > 80) {
+          advice = "Fat and calorie intake is high today. Opt for lighter, plant-based options like steamed veggies or a fresh salad for your remaining meals.";
+        } else if (pctCal < 30 && todayEntries.length === 0) {
+          advice = "No meals logged yet today. Start tracking to get personalized macro coaching and keep your nutrition on track!";
+        } else if (pctCal < 40) {
+          advice = `You've consumed ${Math.round(totals.calories)} kcal out of your 1,900 kcal goal. Don't skip meals — your body needs consistent fuel to maintain metabolism.`;
+        } else if (pctCal > 95) {
+          advice = "You're close to your calorie limit for today. Stick to high-volume, low-calorie options like salad, broth soups, or cucumber for any evening snacks.";
+        } else {
+          advice = `You're on track with ${Math.round(pctCal)}% of your calorie goal. Your macros look balanced — keep it up! Log your next meal to stay consistent.`;
+        }
+        setMacroAdvice(advice);
+      } catch (_) {
+        // Silently fail — card will hide if no data
+      }
+    };
+    void loadTodayMacros();
+    return () => controller.abort();
+  }, []);
 
   const startRecording = () => {
     clearError();
@@ -580,6 +643,61 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
                   />
                 </AreaChart>
               </ResponsiveContainer>
+            </div>
+          </section>
+
+          {/* ── Feature 3: Daily AI Macro Advisor Card ── */}
+          <section className="bg-gradient-to-br from-[#EBF2EB] to-[#DFF0E0] border border-[#D4E6D5] rounded-[24px] p-5 shadow-sm animate-slide-up">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🧠</span>
+                <div>
+                  <h3 className="font-extrabold text-[#2C3E2B] text-sm">Daily Macro Advisor</h3>
+                  <p className="text-[10px] text-[#5A7A58] font-medium">AI-powered nutrition coaching</p>
+                </div>
+              </div>
+              <button
+                onClick={() => onNavigate?.("/insights")}
+                className="text-[10px] font-bold text-[#7A9E7E] hover:text-[#5C7A60] transition-colors border border-[#D4E6D5] bg-white/60 px-2.5 py-1 rounded-full"
+              >
+                Full Insights →
+              </button>
+            </div>
+
+            {/* Today's macro mini-bars */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {[
+                { label: "Calories", val: todayMacros.calories, goal: GOALS.calories, color: "#E8815A", unit: "kcal" },
+                { label: "Protein", val: todayMacros.protein, goal: GOALS.protein, color: "#9DB89F", unit: "g" },
+                { label: "Carbs", val: todayMacros.carbs, goal: GOALS.carbs, color: "#D4A847", unit: "g" },
+                { label: "Fat", val: todayMacros.fat, goal: GOALS.fat, color: "#7A9EBE", unit: "g" },
+              ].map(({ label, val, goal, color, unit }) => {
+                const pct = Math.min(100, Math.round((val / goal) * 100));
+                return (
+                  <div key={label} className="bg-white/70 rounded-xl p-2.5 border border-white/80">
+                    <div className="flex justify-between items-baseline mb-1.5">
+                      <span className="text-[10px] font-bold text-textMuted">{label}</span>
+                      <span className="text-[10px] font-extrabold" style={{ color }}>
+                        {val}<span className="text-[8px] text-textMuted font-semibold">/{goal}{unit}</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-white/60 rounded-full overflow-hidden border border-white/40">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, backgroundColor: color }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Coaching advice bubble */}
+            <div className="bg-white/80 rounded-xl p-3.5 border border-[#D4E6D5]/70 flex items-start gap-2.5">
+              <span className="text-base mt-0.5">💡</span>
+              <p className="text-[11px] text-[#2C3E2B] leading-relaxed font-medium">
+                {macroAdvice || "Loading your daily macro snapshot..."}
+              </p>
             </div>
           </section>
 

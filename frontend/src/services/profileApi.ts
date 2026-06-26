@@ -91,6 +91,20 @@ export const uploadProgressLogRequest = async (weight_kg: number, date: string, 
   return response.data;
 };
 
+export const fetchAllergenSubstitutesRequest = async (
+  ingredients: string[],
+  allergies: string[],
+  restrictions: string[],
+  signal?: AbortSignal,
+): Promise<{ success: boolean; data: Array<{ ingredient: string; reason: string; substitutes: string[] }> }> => {
+  const response = await profileApi.post("/profile/allergen-substitutes", {
+    ingredients,
+    allergies,
+    restrictions,
+  }, { signal });
+  return response.data;
+};
+
 export const getProfileErrorMessage = (error: unknown) =>
   getApiErrorMessage(error, "Failed to load profile. Retry.");
 

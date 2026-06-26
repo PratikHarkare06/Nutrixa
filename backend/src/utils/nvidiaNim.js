@@ -122,7 +122,18 @@ const extractJsonFromText = (text) => {
         braceCount--;
         if (braceCount === 0 && !isArray) {
           const jsonStr = cleanedText.slice(startIdx, i + 1);
-          return JSON.parse(jsonStr);
+          try {
+            return JSON.parse(jsonStr);
+          } catch (e) {
+            try {
+              // Replace single quotes that wrap keys/values with double quotes,
+              // while preserving apostrophes inside words if possible, but a simple replace is a good first step.
+              const fixedJson = jsonStr.replace(/'/g, '"');
+              return JSON.parse(fixedJson);
+            } catch (innerErr) {
+              throw e;
+            }
+          }
         }
       } else if (char === '[') {
         bracketCount++;
@@ -130,7 +141,16 @@ const extractJsonFromText = (text) => {
         bracketCount--;
         if (bracketCount === 0 && isArray) {
           const jsonStr = cleanedText.slice(startIdx, i + 1);
-          return JSON.parse(jsonStr);
+          try {
+            return JSON.parse(jsonStr);
+          } catch (e) {
+            try {
+              const fixedJson = jsonStr.replace(/'/g, '"');
+              return JSON.parse(fixedJson);
+            } catch (innerErr) {
+              throw e;
+            }
+          }
         }
       }
     }
@@ -141,7 +161,16 @@ const extractJsonFromText = (text) => {
   if (!match) {
     throw new Error("No JSON structure found in text response.");
   }
-  return JSON.parse(match[0]);
+  try {
+    return JSON.parse(match[0]);
+  } catch (e) {
+    try {
+      const fixedJson = match[0].replace(/'/g, '"');
+      return JSON.parse(fixedJson);
+    } catch (innerErr) {
+      throw e;
+    }
+  }
 };
 
 module.exports = { callNvidiaNim, extractJsonFromText };

@@ -451,6 +451,29 @@ Do not wrap it in any markdown blocks or return any additional text.`;
   }
 };
 
+const generateSubstitutesForAllergens = async (ingredients, allergies, restrictions) => {
+  const prompt = `You are a professional chef and nutritionist.
+The user has the following ingredients in their planned meal: ${ingredients.join(", ")}.
+They have these food allergies: ${allergies.join(", ")}.
+They have these dietary restrictions: ${restrictions.join(", ")}.
+
+Identify which of the ingredients violate their allergies or dietary restrictions.
+For each violating ingredient, provide a JSON object with:
+- "ingredient": String (the original ingredient name)
+- "reason": String (why it is a conflict, e.g., "Contains eggs which you are allergic to" or "Contains chicken which is not vegetarian")
+- "substitutes": Array of Strings (3 healthy, tasty, and safe alternatives that fit their profile)
+
+Return ONLY a valid JSON array of these conflict objects. If there are no conflicts, return an empty JSON array []. Do not wrap in markdown tags.`;
+
+  try {
+    const textOutput = await callNvidiaNim(prompt);
+    return extractJsonFromText(textOutput);
+  } catch (error) {
+    console.error("Nvidia Substitutes Generator Error:", error);
+    return [];
+  }
+};
+
 module.exports = { 
   analyzeFoodImageWithGemini, 
   getMealSuggestions, 
@@ -461,5 +484,6 @@ module.exports = {
   parseVoiceMealWithGemini,
   generateChatResponse,
   analyzeReceiptWithGemini,
-  generateRecipesFromIngredients
+  generateRecipesFromIngredients,
+  generateSubstitutesForAllergens
 };

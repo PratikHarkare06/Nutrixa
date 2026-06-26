@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { useMemo, useState, useEffect } from "react";
+import { Cell, Pie, PieChart, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
 import {
   CameraIcon,
   HomeIcon,
@@ -10,6 +10,7 @@ import {
 } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
 import { handleImageError } from "../utils/imageHelper";
+import { fetchProfileRequest, fetchAllergenSubstitutesRequest } from "../services/profileApi";
 
 type ResultsPageProps = {
   onBack: () => void;
@@ -44,6 +45,141 @@ const formatNumber = (value: number) => {
   return value.toFixed(1);
 };
 
+// ── Glycemic Load helpers ──────────────────────────────────────────────────
+const computeGlycemicLoad = (carbs: number, fiber: number, protein: number) => {
+  // Estimate Glycemic Index from macro composition
+  // High fiber + protein lowers effective GI. Baseline GI ~65 for mixed meal.
+  const netCarbs = Math.max(0, carbs - fiber);
+  const moderatingFactor = Math.max(0, 1 - (fiber / Math.max(carbs, 1)) * 0.5 - (protein / Math.max(carbs + protein, 1)) * 0.3);
+  const estimatedGI = 45 + 40 * moderatingFactor; // range ~45-85
+  const gl = (estimatedGI / 100) * netCarbs;
+  return { gl: Math.round(gl), estimatedGI: Math.round(estimatedGI), netCarbs: Math.round(netCarbs) };
+};
+
+const getGlLevel = (gl: number): { label: string; color: string; bg: string; border: string; description: string } => {
+  if (gl < 10) return { label: "Low", color: "#22C55E", bg: "#F0FDF4", border: "#BBF7D0", description: "Minimal blood sugar impact. Sustained energy." };
+  if (gl < 20) return { label: "Medium", color: "#F59E0B", bg: "#FFFBEB", border: "#FDE68A", description: "Moderate glucose rise. Watch portion size." };
+  return { label: "High", color: "#EF4444", bg: "#FFF1F2", border: "#FECDD3", description: "Rapid glucose spike likely. Consider pairing with fiber or fat." };
+};
+
+const generateEnergyTimeline = (carbs: number, fiber: number, protein: number, fat: number) => {
+  const { gl, estimatedGI } = computeGlycemicLoad(carbs, fiber, protein);
+  // Baseline fasting blood glucose ~5.0 mmol/L (90 mg/dL equivalent = 100 units)
+  const baseline = 100;
+  // Peak rise depends on GL. High fat/protein slow absorption (lower/delayed peak)
+  const peakRise = Math.min(gl * 2.2, 95); // capped at +95
+  const peakDelay = fat > 20 ? 75 : protein > 30 ? 60 : 45; // minutes to peak
+  const decayRate = estimatedGI > 70 ? 0.6 : estimatedGI > 55 ? 0.45 : 0.3; // faster decay = crash
+
+  const points: { time: string; glucose: number }[] = [];
+  const times = [0, 15, 30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240];
+  times.forEach((t) => {
+    let glucose: number;
+    if (t <= peakDelay) {
+      // Rising phase
+      glucose = baseline + (peakRise * (t / peakDelay));
+    } else {
+      // Decay phase - exponential decay back toward baseline
+      const decayT = (t - peakDelay) / 60;
+      glucose = baseline + peakRise * Math.exp(-decayRate * decayT);
+    }
+    points.push({ time: t === 0 ? "0" : t < 60 ? `${t}m` : `${t / 60}h`, glucose: Math.round(glucose) });
+  });
+  return { points, peakGlucose: Math.round(baseline + peakRise), baseline };
+};
+
+const getTweakCards = (carbs: number, fiber: number, protein: number, fat: number, gl: number) => {
+  const tweaks: { icon: string; tip: string; impact: string }[] = [];
+  if (fiber < 5) tweaks.push({ icon: "🥦", tip: "Add 1 cup of steamed broccoli or spinach", impact: "↓ GL by ~3 points" });
+  if (protein < 20) tweaks.push({ icon: "🥚", tip: "Include a boiled egg or 30g of cottage cheese", impact: "↓ Glucose spike by ~15%" });
+  if (fat < 8) tweaks.push({ icon: "🥑", tip: "Drizzle 1 tsp of olive oil or add ¼ avocado", impact: "Slows absorption, reduces crash" });
+  if (gl > 20) tweaks.push({ icon: "💧", tip: "Drink a glass of water before eating", impact: "Delays gastric emptying by ~10min" });
+  if (tweaks.length === 0) tweaks.push({ icon: "✅", tip: "Great macro balance! Minimal glucose crash risk.", impact: "No adjustments needed" });
+  return tweaks.slice(0, 3);
+};
+
+const checkAllergenConflicts = (foods: string[], allergies: string[]) => {
+  const conflicts: { allergen: string; ingredient: string; substitutes: string[] }[] = [];
+  
+  const allergyMap: Record<string, { patterns: string[]; subs: string[] }> = {
+    "Shellfish": {
+      patterns: ["shrimp", "prawn", "lobster", "crab", "crayfish", "mussel", "clam", "oyster", "shellfish"],
+      subs: ["King oyster mushrooms", "Tofu", "Heart of palm", "Plant-based mock shrimp"]
+    },
+    "Eggs": {
+      patterns: ["egg", "mayonnaise", "mayo", "meringue", "custard"],
+      subs: ["Silken tofu", "Chickpea flour (besan)", "Flaxseed meal", "Just Egg substitute"]
+    },
+    "Soy": {
+      patterns: ["soy", "tofu", "tempeh", "edamame", "miso", "shoyu", "tamari"],
+      subs: ["Chickpeas", "Seitan", "Coconut aminos", "Pea protein"]
+    },
+    "Fish": {
+      patterns: ["fish", "salmon", "tuna", "cod", "trout", "mackerel", "sardine", "anchovy", "halibut", "sea bass", "tilapia", "haddock"],
+      subs: ["Jackfruit", "Mashed chickpeas", "Tofu", "Seaweed-wrapped heart of palm"]
+    },
+    "Sesame": {
+      patterns: ["sesame", "tahini", "gomasio", "halvah"],
+      subs: ["Sunflower seed butter", "Pumpkin seed butter", "Olive oil"]
+    }
+  };
+
+  foods.forEach((food) => {
+    const foodLower = food.toLowerCase();
+    allergies.forEach((allergy) => {
+      const config = allergyMap[allergy];
+      if (config && config.patterns.some(p => foodLower.includes(p))) {
+        conflicts.push({
+          allergen: allergy,
+          ingredient: food,
+          substitutes: config.subs
+        });
+      }
+    });
+  });
+
+  return conflicts;
+};
+
+const checkDietaryConflicts = (foods: string[], restrictions: string[]) => {
+  const conflicts: { restriction: string; ingredient: string; substitutes: string[] }[] = [];
+  
+  const restrictionMap: Record<string, { patterns: string[]; subs: string[] }> = {
+    "Vegetarian": {
+      patterns: ["chicken", "beef", "pork", "mutton", "lamb", "fish", "salmon", "tuna", "cod", "shrimp", "prawn", "lobster", "crab", "bacon", "turkey", "ham", "steak", "meat"],
+      subs: ["Tofu", "Paneer", "Tempeh", "Lentils", "Mushrooms"]
+    },
+    "Vegan": {
+      patterns: ["chicken", "beef", "pork", "mutton", "lamb", "fish", "salmon", "tuna", "cod", "shrimp", "prawn", "lobster", "crab", "bacon", "turkey", "ham", "steak", "meat", "milk", "cheese", "yogurt", "butter", "ghee", "egg", "honey", "cream", "paneer", "whey"],
+      subs: ["Plant-based milk (almond/soy/oat)", "Vegan cheese", "Coconut oil", "Nutritional yeast", "Tofu"]
+    },
+    "Gluten-Free": {
+      patterns: ["wheat", "flour", "bread", "pasta", "pizza dough", "dough", "semolina", "barley", "rye"],
+      subs: ["Almond flour", "Coconut flour", "Rice flour", "Quinoa", "Gluten-free oats"]
+    },
+    "Nut-Free": {
+      patterns: ["peanut", "almond", "walnut", "cashew", "pecan", "pistachio", "macadamia", "hazelnut", "nut"],
+      subs: ["Sunflower seeds", "Pumpkin seeds", "Oats", "Melon seeds (magaz)"]
+    }
+  };
+
+  foods.forEach((food) => {
+    const foodLower = food.toLowerCase();
+    restrictions.forEach((restriction) => {
+      const config = restrictionMap[restriction];
+      if (config && config.patterns.some(p => foodLower.includes(p))) {
+        conflicts.push({
+          restriction: restriction,
+          ingredient: food,
+          substitutes: config.subs
+        });
+      }
+    });
+  });
+
+  return conflicts;
+};
+
 export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const analysis = useUploadStore((state) => state.analysis);
   const addIngredientsToPantry = useUploadStore((state) => state.addIngredientsToPantry);
@@ -53,6 +189,43 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const [isSaved, setIsSaved] = useState(false);
   const [isDeducted, setIsDeducted] = useState(false);
   const [isSimilarModalOpen, setIsSimilarModalOpen] = useState(false);
+
+  const [profile, setProfile] = useState<any>(null);
+  const [allergenConflicts, setAllergenConflicts] = useState<any[]>([]);
+  const [dietaryConflicts, setDietaryConflicts] = useState<any[]>([]);
+  const [aiSubstitutes, setAiSubstitutes] = useState<any[]>([]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showAiSubstitutes, setShowAiSubstitutes] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const loadProfileAndCheck = async () => {
+      try {
+        const res = await fetchProfileRequest();
+        if (!active) return;
+        setProfile(res.data);
+        
+        if (analysis) {
+          const foodNames = analysis.foods.map(f => f.name);
+          const allergies = res.data.foodAllergies || [];
+          const restrictions = res.data.dietaryRestrictions || [];
+          
+          const aConflicts = checkAllergenConflicts(foodNames, allergies);
+          const dConflicts = checkDietaryConflicts(foodNames, restrictions);
+          
+          setAllergenConflicts(aConflicts);
+          setDietaryConflicts(dConflicts);
+        }
+      } catch (err) {
+        console.error("Failed to load profile for allergen check:", err);
+      }
+    };
+    loadProfileAndCheck();
+    return () => {
+      active = false;
+    };
+  }, [analysis]);
 
   const currentPantry = useMemo(() => {
     const defaultMockNames = ["Avocados", "Chicken Breast", "Quinoa", "Greek Yogurt", "Spinach"];
@@ -237,11 +410,247 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
               </div>
             </div>
           </section>
+
+          {/* ── Feature 2: Glycemic Load & Energy Crash Predictor ── */}
+          {(() => {
+            const carbs = analysis.macros.carbs || 0;
+            const fiber = analysis.macros.fiber || 0;
+            const protein = analysis.macros.protein || 0;
+            const fat = analysis.macros.fat || 0;
+            const { gl, netCarbs, estimatedGI } = computeGlycemicLoad(carbs, fiber, protein);
+            const glLevel = getGlLevel(gl);
+            const { points, peakGlucose, baseline } = generateEnergyTimeline(carbs, fiber, protein, fat);
+            const tweaks = getTweakCards(carbs, fiber, protein, fat, gl);
+            const glPercent = Math.min((gl / 35) * 100, 100); // 35 = very high GL threshold
+
+            return (
+              <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm space-y-6">
+                {/* Section Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-textHeading flex items-center gap-2">
+                      <span>⚡</span> Glycemic Load
+                    </h2>
+                    <p className="text-xs text-textMuted mt-0.5">Estimated blood sugar impact of this meal</p>
+                  </div>
+                  <div
+                    className="px-3 py-1.5 rounded-full text-xs font-extrabold"
+                    style={{ background: glLevel.bg, border: `1px solid ${glLevel.border}`, color: glLevel.color }}
+                  >
+                    {glLevel.label} GL
+                  </div>
+                </div>
+
+                {/* GL Gauge */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[11px] font-bold text-textMuted">
+                    <span>0</span>
+                    <span className="text-center">GL Score: <span style={{ color: glLevel.color }} className="text-base font-extrabold">{gl}</span></span>
+                    <span>35+</span>
+                  </div>
+                  <div className="relative h-3 bg-gradient-to-r from-green-200 via-amber-200 to-red-300 rounded-full overflow-hidden">
+                    <div
+                      className="absolute top-0 h-full w-1.5 bg-white border border-gray-400 rounded-full shadow-md transition-all duration-700"
+                      style={{ left: `calc(${glPercent}% - 3px)` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[9px] font-semibold text-textMuted">
+                    <span className="text-green-600">Low (&lt;10)</span>
+                    <span className="text-amber-500">Medium (10–19)</span>
+                    <span className="text-red-500">High (≥20)</span>
+                  </div>
+                  <p className="text-[11px] text-textMuted mt-1 leading-relaxed" style={{ color: glLevel.color + "CC" }}>
+                    {glLevel.description}
+                  </p>
+                  <div className="flex gap-3 text-[10px] text-textMuted flex-wrap pt-1">
+                    <span className="bg-[#F5F6F1] px-2 py-0.5 rounded-full border border-border font-semibold">Net Carbs: {netCarbs}g</span>
+                    <span className="bg-[#F5F6F1] px-2 py-0.5 rounded-full border border-border font-semibold">Est. GI: ~{estimatedGI}</span>
+                    <span className="bg-[#F5F6F1] px-2 py-0.5 rounded-full border border-border font-semibold">Peak: ~{peakGlucose} mg/dL</span>
+                  </div>
+                </div>
+
+                {/* Energy Timeline Chart */}
+                <div>
+                  <div className="text-xs font-bold text-textHeading mb-1">4-Hour Blood Glucose Forecast</div>
+                  <p className="text-[10px] text-textMuted mb-3">Projected relative blood sugar curve after eating</p>
+                  <div className="h-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={points} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="glucoseGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#22C55E" />
+                            <stop offset="50%" stopColor={glLevel.color} />
+                            <stop offset="100%" stopColor="#22C55E" />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: "#888888", fontSize: 9 }} />
+                        <YAxis hide domain={[80, 'auto']} />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const val = payload[0].value as number;
+                              const change = val - baseline;
+                              return (
+                                <div className="bg-white border border-border rounded-xl p-2.5 shadow-md text-[10px]">
+                                  <p className="font-bold text-textHeading">~{val} mg/dL</p>
+                                  <p className={`font-semibold ${change > 0 ? 'text-amber-500' : 'text-green-500'}`}>
+                                    {change >= 0 ? `+${change}` : change} from baseline
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <ReferenceLine y={baseline} stroke="#D4E6D5" strokeDasharray="4 4" strokeWidth={1.5} />
+                        <ReferenceLine y={140} stroke="#FDE68A" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'spike', position: 'right', fontSize: 8, fill: '#F59E0B' }} />
+                        <Line
+                          type="monotone"
+                          dataKey="glucose"
+                          stroke={`url(#glucoseGradient)`}
+                          strokeWidth={2.5}
+                          dot={false}
+                          activeDot={{ r: 4, fill: glLevel.color, strokeWidth: 0 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-[9px] text-textMuted">
+                    <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-[#D4E6D5] inline-block" /> Fasting baseline</span>
+                    <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-[#FDE68A] inline-block" /> Spike threshold</span>
+                  </div>
+                </div>
+
+                {/* Tweak Cards */}
+                <div>
+                  <div className="text-xs font-bold text-textHeading mb-2">💡 Balance Tips</div>
+                  <div className="space-y-2">
+                    {tweaks.map((t, i) => (
+                      <div key={i} className="flex items-start gap-3 bg-[#F8FAF8] border border-[#E2E8E2] rounded-xl p-3">
+                        <span className="text-base mt-0.5">{t.icon}</span>
+                        <div>
+                          <p className="text-[11px] font-semibold text-textHeading leading-tight">{t.tip}</p>
+                          <p className="text-[10px] text-[#7A9E7E] font-bold mt-0.5">{t.impact}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
         </div>
 
         {/* Right Column: Detected Items & Insights */}
         <div className="space-y-6">
           
+          {/* Allergen & Dietary Alert Card */}
+          {(allergenConflicts.length > 0 || dietaryConflicts.length > 0) && (
+            <section className="bg-rose-50/95 border border-rose-200 rounded-[24px] p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl animate-pulse">⚠️</span>
+                <div>
+                  <h3 className="font-extrabold text-rose-900 text-base">Allergen &amp; Dietary Alert</h3>
+                  <p className="text-xs text-rose-700/80">We detected ingredients that conflict with your preferences.</p>
+                </div>
+              </div>
+
+              <div className="space-y-3.5">
+                {allergenConflicts.map((c, idx) => (
+                  <div key={`all-${idx}`} className="bg-white/80 rounded-xl p-3.5 border border-rose-100/60">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-xs font-bold text-rose-900 capitalize">⚠️ {c.ingredient}</span>
+                      <span className="text-[10px] font-extrabold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Allergy: {c.allergen}</span>
+                    </div>
+                    <div className="text-xs text-textBody">
+                      <span className="font-semibold text-textHeading">Recommended Swaps:</span>{" "}
+                      {c.substitutes.join(", ")}
+                    </div>
+                  </div>
+                ))}
+
+                {dietaryConflicts.map((c, idx) => (
+                  <div key={`diet-${idx}`} className="bg-white/80 rounded-xl p-3.5 border border-rose-100/60">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-xs font-bold text-rose-900 capitalize">⚠️ {c.ingredient}</span>
+                      <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full uppercase tracking-wider">{c.restriction}</span>
+                    </div>
+                    <div className="text-xs text-textBody">
+                      <span className="font-semibold text-textHeading">Recommended Swaps:</span>{" "}
+                      {c.substitutes.join(", ")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* AI Substitutes Button */}
+              {!showAiSubstitutes ? (
+                <button
+                  onClick={async () => {
+                    setIsAiLoading(true);
+                    setAiError("");
+                    try {
+                      const foodNames = analysis.foods.map(f => f.name);
+                      const res = await fetchAllergenSubstitutesRequest(
+                        foodNames,
+                        profile?.foodAllergies || [],
+                        profile?.dietaryRestrictions || []
+                      );
+                      setAiSubstitutes(res.data || []);
+                      setShowAiSubstitutes(true);
+                    } catch (err) {
+                      setAiError("Could not retrieve AI substitutes. Please try again.");
+                    } finally {
+                      setIsAiLoading(false);
+                    }
+                  }}
+                  disabled={isAiLoading}
+                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 hover:scale-[1.01] active:scale-[0.99] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  {isAiLoading ? "Consulting AI Chef..." : "✨ Generate Chef-Crafted Swaps (AI)"}
+                </button>
+              ) : (
+                <div className="bg-white rounded-2xl p-4 border border-rose-100 space-y-3">
+                  <div className="flex justify-between items-center pb-2 border-b border-[#F5F5F0]">
+                    <span className="text-xs font-bold text-textHeading flex items-center gap-1">🍳 Chef AI Swaps</span>
+                    <button 
+                      onClick={() => setShowAiSubstitutes(false)}
+                      className="text-textMuted hover:text-textHeading text-xs font-bold"
+                    >
+                      Hide
+                    </button>
+                  </div>
+
+                  {aiSubstitutes.length === 0 ? (
+                    <p className="text-xs text-textMuted italic">No custom swaps generated.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {aiSubstitutes.map((swap: any, idx: number) => (
+                        <div key={`swap-${idx}`} className="space-y-1">
+                          <div className="text-xs font-bold text-rose-700 capitalize">
+                            Replace: {swap.ingredient}
+                          </div>
+                          <p className="text-[11px] text-textMuted leading-relaxed">{swap.reason}</p>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {swap.substitutes?.map((s: string, sIdx: number) => (
+                              <span key={sIdx} className="text-[10px] font-semibold bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] px-2 py-0.5 rounded-full">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {aiError && (
+                <p className="text-xs font-semibold text-rose-600 text-center">{aiError}</p>
+              )}
+            </section>
+          )}
+
           {/* Detected Items Card */}
           <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
             <div className="flex justify-between items-center mb-6">

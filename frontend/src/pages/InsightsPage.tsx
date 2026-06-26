@@ -9,6 +9,10 @@ import {
   LineChart,
   Pie,
   PieChart,
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -349,6 +353,163 @@ export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
               </div>
             </div>
           </section>
+
+          {/* ── Feature 5: Micronutrient Deficiency Radar ── */}
+          {(() => {
+            // Estimate micronutrient intake from macros in logged history
+            // Using typical nutrient density ratios per meal macros
+            const totalCalories = historyItems.slice(0, 7).reduce((sum, e) => sum + (e.macros?.calories || 0), 0);
+            const avgCalories = historyItems.length > 0 ? totalCalories / Math.min(historyItems.length, 7) : 0;
+            const totalFiber = historyItems.slice(0, 7).reduce((sum, e) => sum + (e.macros?.fiber || 0), 0);
+            const avgFiber = historyItems.length > 0 ? totalFiber / Math.min(historyItems.length, 7) : 0;
+
+            // Estimated % of daily reference intake based on eating patterns
+            const micronutrients = [
+              {
+                name: "Calcium",
+                emoji: "🦷",
+                estimated: Math.min(100, Math.round(avgCalories * 0.035 + avgFiber * 1.2)),
+                rdi: 1000,
+                unit: "mg",
+                defFoods: ["Milk", "Greek Yogurt", "Almonds", "Chia Seeds"]
+              },
+              {
+                name: "Iron",
+                emoji: "🧧",
+                estimated: Math.min(100, Math.round(avgCalories * 0.028 + avgFiber * 0.9)),
+                rdi: 18,
+                unit: "mg",
+                defFoods: ["Spinach", "Lentils", "Tofu", "Pumpkin Seeds"]
+              },
+              {
+                name: "Vitamin D",
+                emoji: "☀️",
+                estimated: Math.min(100, Math.round(avgCalories * 0.022)),
+                rdi: 20,
+                unit: "mcg",
+                defFoods: ["Salmon", "Egg Yolk", "Fortified Milk", "Mushrooms"]
+              },
+              {
+                name: "Magnesium",
+                emoji: "💪",
+                estimated: Math.min(100, Math.round(avgCalories * 0.04 + avgFiber * 1.5)),
+                rdi: 400,
+                unit: "mg",
+                defFoods: ["Dark Chocolate", "Avocado", "Bananas", "Quinoa"]
+              },
+              {
+                name: "Potassium",
+                emoji: "🍌",
+                estimated: Math.min(100, Math.round(avgCalories * 0.042 + avgFiber * 1.8)),
+                rdi: 4700,
+                unit: "mg",
+                defFoods: ["Bananas", "Sweet Potato", "Beets", "Coconut Water"]
+              },
+              {
+                name: "Zinc",
+                emoji: "🛡️",
+                estimated: Math.min(100, Math.round(avgCalories * 0.025 + avgFiber * 0.7)),
+                rdi: 11,
+                unit: "mg",
+                defFoods: ["Pumpkin Seeds", "Beef", "Chickpeas", "Cashews"]
+              },
+            ];
+
+            const radarData = micronutrients.map(m => ({ nutrient: m.name, value: m.estimated }));
+            const deficient = micronutrients.filter(m => m.estimated < 60).sort((a, b) => a.estimated - b.estimated);
+
+            return (
+              <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-textHeading flex items-center gap-2">
+                      <span>🎯</span> Micronutrient Radar
+                    </h2>
+                    <p className="text-[10px] text-textMuted mt-0.5">Estimated daily coverage from logged meals</p>
+                  </div>
+                  {historyItems.length === 0 && (
+                    <span className="text-[9px] text-textMuted bg-[#F5F5F0] px-2 py-1 rounded-full border border-border">Log meals to activate</span>
+                  )}
+                </div>
+
+                {/* Radar Chart */}
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
+                      <PolarGrid stroke="#E2E4DC" />
+                      <PolarAngleAxis
+                        dataKey="nutrient"
+                        tick={{ fill: "#888888", fontSize: 9, fontWeight: 600 }}
+                      />
+                      <Radar
+                        name="Coverage"
+                        dataKey="value"
+                        stroke="#9DB89F"
+                        fill="#9DB89F"
+                        fillOpacity={0.25}
+                        strokeWidth={2}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const nm = payload[0].payload.nutrient;
+                            const val = payload[0].value as number;
+                            return (
+                              <div className="bg-white border border-border rounded-xl p-2.5 shadow-md text-[10px]">
+                                <p className="font-bold text-textHeading">{nm}</p>
+                                <p className={`font-semibold ${
+                                  val >= 80 ? 'text-green-500' : val >= 60 ? 'text-amber-500' : 'text-red-500'
+                                }`}>{val}% RDI</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Micronutrient Coverage Bars */}
+                <div className="space-y-2 mt-2">
+                  {micronutrients.map(m => {
+                    const color = m.estimated >= 80 ? "#9DB89F" : m.estimated >= 60 ? "#D4A847" : "#EF4444";
+                    return (
+                      <div key={m.name} className="flex items-center gap-3">
+                        <span className="text-sm w-4">{m.emoji}</span>
+                        <span className="text-[10px] font-bold text-textMuted w-20">{m.name}</span>
+                        <div className="flex-1 h-1.5 bg-[#F5F5F0] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${m.estimated}%`, backgroundColor: color }}
+                          />
+                        </div>
+                        <span className="text-[9px] font-bold w-8 text-right" style={{ color }}>{m.estimated}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Deficiency Recommendations */}
+                {deficient.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-[#F5F5F0]">
+                    <p className="text-[10px] font-bold text-textMuted uppercase tracking-wider mb-2">🛒 Top Foods to Address Gaps</p>
+                    <div className="space-y-2">
+                      {deficient.slice(0, 2).map(m => (
+                        <div key={m.name} className="flex items-start gap-2 bg-[#FFF8F8] border border-rose-100 rounded-xl p-2.5">
+                          <span className="text-sm">{m.emoji}</span>
+                          <div>
+                            <p className="text-[10px] font-bold text-rose-800">{m.name} — only {m.estimated}% covered</p>
+                            <p className="text-[9px] text-textMuted mt-0.5">Try: {m.defFoods.slice(0, 3).join(", ")}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })()}
 
           {/* AI Health Nugget Card */}
           <section className="bg-[#EBF2EB] border border-[#D4E6D5] rounded-[24px] p-6 shadow-sm space-y-4">

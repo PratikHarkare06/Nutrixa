@@ -100,6 +100,7 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
     setError,
     setValue,
     watch,
+    getValues,
   } = useForm<ProfileFormValues>({
     defaultValues,
   });
@@ -287,30 +288,92 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
             
             {/* Dietary Preferences Card */}
             <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-textHeading mb-4">Dietary Preferences</h2>
+              <h2 className="text-lg font-bold text-textHeading mb-4">Dietary Restrictions &amp; Allergies</h2>
               <p className="text-xs text-textMuted leading-relaxed mb-6">
-                Choose your dietary goals and restrictions to personalize your recommendations.
+                Personalize your diet profile. Tapping updates your profile settings instantly.
               </p>
 
-              {/* Tag capsules */}
-              <div className="grid grid-cols-2 gap-3 mb-6 max-w-md">
-                {preferenceTags.map((tag) => {
-                  const selected = dietaryRestrictions.includes(tag) || (tag === "Vegetarian" && dietaryRestrictions.includes("Vegetarian")) || (tag === "Gluten Free" && dietaryRestrictions.includes("Gluten-Free"));
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleRestriction(tag === "Gluten Free" ? "Gluten-Free" : tag)}
-                      className={`py-3 rounded-full text-xs font-bold transition-all border text-center ${
-                        selected
-                          ? "bg-[#9DB89F] border-[#9DB89F] text-white shadow-sm"
-                          : "bg-white border-border text-textHeading hover:border-borderStrong"
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
+              <div className="mb-6">
+                <label className="block text-xs font-semibold text-textMuted mb-2">Dietary Restrictions</label>
+                <div className="flex flex-wrap gap-2">
+                  {["Vegetarian", "Gluten-Free", "Nut-Free", "Vegan"].map((restriction) => {
+                    const selected = dietaryRestrictions.includes(restriction);
+                    return (
+                      <button
+                        key={restriction}
+                        type="button"
+                        onClick={async () => {
+                          const nextRest = selected
+                            ? dietaryRestrictions.filter((r) => r !== restriction)
+                            : [...dietaryRestrictions, restriction];
+                          setValue("dietaryRestrictions", nextRest);
+                          
+                          // Autosave
+                          try {
+                            const current = getValues();
+                            await saveProfileRequest({
+                              ...current,
+                              dietaryRestrictions: nextRest,
+                            });
+                            setSaveMessage("Dietary preferences updated.");
+                            setTimeout(() => setSaveMessage(""), 2000);
+                          } catch (err) {
+                            setErrorMessage("Failed to save changes.");
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                          selected
+                            ? "bg-[#9DB89F] border-[#9DB89F] text-white shadow-sm"
+                            : "bg-white border-border text-textHeading hover:border-borderStrong"
+                        }`}
+                      >
+                        {restriction}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-xs font-semibold text-textMuted mb-2">Active Food Allergies</label>
+                <div className="flex flex-wrap gap-2">
+                  {["Shellfish", "Eggs", "Soy", "Fish", "Sesame"].map((allergy) => {
+                    const currentAll = watch("foodAllergies") || [];
+                    const selected = currentAll.includes(allergy);
+                    return (
+                      <button
+                        key={allergy}
+                        type="button"
+                        onClick={async () => {
+                          const nextAll = selected
+                            ? currentAll.filter((a) => a !== allergy)
+                            : [...currentAll, allergy];
+                          setValue("foodAllergies", nextAll);
+                          
+                          // Autosave
+                          try {
+                            const current = getValues();
+                            await saveProfileRequest({
+                              ...current,
+                              foodAllergies: nextAll,
+                            });
+                            setSaveMessage("Allergies updated.");
+                            setTimeout(() => setSaveMessage(""), 2000);
+                          } catch (err) {
+                            setErrorMessage("Failed to save changes.");
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                          selected
+                            ? "bg-[#E8815A] border-[#E8815A] text-white shadow-sm"
+                            : "bg-white border-border text-textHeading hover:border-borderStrong"
+                        }`}
+                      >
+                        {allergy}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="w-full h-px bg-[#F5F5F0] my-6" />
@@ -319,18 +382,37 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setNutAllergyWarning(!nutAllergyWarning)}
+                  onClick={async () => {
+                    const currentRest = watch("dietaryRestrictions") || [];
+                    const hasNutFree = currentRest.includes("Nut-Free");
+                    const nextRest = hasNutFree
+                      ? currentRest.filter(r => r !== "Nut-Free")
+                      : [...currentRest, "Nut-Free"];
+                    setValue("dietaryRestrictions", nextRest);
+                    
+                    try {
+                      const current = getValues();
+                      await saveProfileRequest({
+                        ...current,
+                        dietaryRestrictions: nextRest,
+                      });
+                      setSaveMessage("Nut Allergy setting updated.");
+                      setTimeout(() => setSaveMessage(""), 2000);
+                    } catch (err) {
+                      setErrorMessage("Failed to save changes.");
+                    }
+                  }}
                   className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none ${
-                    nutAllergyWarning ? "bg-[#9DB89F]" : "bg-border"
+                    dietaryRestrictions.includes("Nut-Free") ? "bg-[#9DB89F]" : "bg-border"
                   }`}
                 >
                   <span
                     className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${
-                      nutAllergyWarning ? "translate-x-5" : "translate-x-0"
+                      dietaryRestrictions.includes("Nut-Free") ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </button>
-                <span className="text-xs font-semibold text-textHeading">Nut Allergy Warnings</span>
+                <span className="text-xs font-semibold text-textHeading">Nut-Free Allergy Warnings</span>
               </div>
             </section>
 
@@ -581,6 +663,71 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
                   >
                     {primaryGoalOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
+                </div>
+              </div>
+
+              {/* Food Allergies & Dietary Restrictions */}
+              <div className="pt-4 border-t border-[#F5F5F0]">
+                <h4 className="font-bold text-textHeading text-sm mb-3">Dietary Restrictions &amp; Allergies</h4>
+                
+                {/* Dietary Restrictions checkboxes/buttons */}
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-textMuted mb-2">Dietary Restrictions</label>
+                  <div className="flex flex-wrap gap-2">
+                    {["Vegetarian", "Gluten-Free", "Nut-Free", "Vegan"].map((restriction) => {
+                      const currentRest = watch("dietaryRestrictions") || [];
+                      const selected = currentRest.includes(restriction);
+                      return (
+                        <button
+                          key={restriction}
+                          type="button"
+                          onClick={() => {
+                            const nextRest = selected
+                              ? currentRest.filter((r) => r !== restriction)
+                              : [...currentRest, restriction];
+                            setValue("dietaryRestrictions", nextRest, { shouldDirty: true });
+                          }}
+                          className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                            selected
+                              ? "bg-[#9DB89F] border-[#9DB89F] text-white shadow-sm"
+                              : "bg-white border-border text-textHeading hover:border-borderStrong"
+                          }`}
+                        >
+                          {restriction}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Food Allergies checkboxes/buttons */}
+                <div>
+                  <label className="block text-xs font-semibold text-textMuted mb-2">Food Allergies</label>
+                  <div className="flex flex-wrap gap-2">
+                    {["Shellfish", "Eggs", "Soy", "Fish", "Sesame"].map((allergy) => {
+                      const currentAll = watch("foodAllergies") || [];
+                      const selected = currentAll.includes(allergy);
+                      return (
+                        <button
+                          key={allergy}
+                          type="button"
+                          onClick={() => {
+                            const nextAll = selected
+                              ? currentAll.filter((a) => a !== allergy)
+                              : [...currentAll, allergy];
+                            setValue("foodAllergies", nextAll, { shouldDirty: true });
+                          }}
+                          className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                            selected
+                              ? "bg-[#E8815A] border-[#E8815A] text-white shadow-sm"
+                              : "bg-white border-border text-textHeading hover:border-borderStrong"
+                          }`}
+                        >
+                          {allergy}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
