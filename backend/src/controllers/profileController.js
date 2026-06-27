@@ -304,6 +304,23 @@ const getPantryRecipes = async (req, res, next) => {
   }
 };
 
+const getAllergenSubstitutes = async (req, res, next) => {
+  try {
+    const { ingredients, allergies, restrictions } = req.body;
+    if (!ingredients || !Array.isArray(ingredients)) {
+      return next(createAppError(400, "INVALID_DATA", "Ingredients array is required."));
+    }
+
+    const { generateSubstitutesForAllergens } = require("../services/geminiAnalysisService");
+    const substitutes = await generateSubstitutesForAllergens(ingredients, allergies || [], restrictions || []);
+
+    res.status(200).json({ success: true, data: substitutes });
+  } catch (error) {
+    console.error("getAllergenSubstitutes Controller Error:", error);
+    next(createAppError(500, "GENERATE_FAILED", "Failed to generate allergen substitutes."));
+  }
+};
+
 const getStreakDays = (datesArray) => {
   if (!datesArray || datesArray.length === 0) return 0;
   const uniqueDates = Array.from(new Set(datesArray)).sort().reverse();
