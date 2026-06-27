@@ -40,6 +40,12 @@ const awardXP = async (userId, action, value = 0) => {
           newBadges.push(BADGES.HYDRATION_HERO);
         }
         break;
+      case "LOG_SLEEP":
+        xpGain = 50;
+        break;
+      case "LOG_PROGRESS":
+        xpGain = 100;
+        break;
       // Add more cases as needed
     }
 

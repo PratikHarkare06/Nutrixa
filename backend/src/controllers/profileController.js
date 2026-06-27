@@ -246,6 +246,10 @@ const addProgressLog = async (req, res, next) => {
       { upsert: true }
     );
 
+    // Award XP
+    const { awardXP } = require("../services/gamificationService");
+    await awardXP(null, "LOG_PROGRESS");
+
     res.status(200).json({ success: true, data: newLog });
   } catch (error) {
     next(createAppError(500, "SAVE_FAILED", "Failed to add progress log."));
@@ -508,9 +512,102 @@ const modifyDietPlanMeal = async (req, res, next) => {
       return next(createAppError(400, "INVALID_DATA", "day, mealIndex, and prompt are required."));
     }
 
-    const profile = await UserProfile.findOne(profileFilter);
-    if (!profile || !profile.diet_plan) {
-      return next(createAppError(404, "NOT_FOUND", "Diet plan not found. Please generate a diet plan first."));
+    let profile = await UserProfile.findOne(profileFilter);
+    if (!profile) {
+      const defaultData = {
+        activity_level: "Moderately Active",
+        age: 30,
+        dietary_restrictions: ["Vegetarian", "Gluten-Free"],
+        email: "sarah.johnson@email.com",
+        food_allergies: ["Shellfish"],
+        gender: "Female",
+        height_cm: 165,
+        diet_mode: "Balanced",
+        name: "Sarah Johnson",
+        profile_key: "primary",
+        weight_kg: 62,
+      };
+      profile = await UserProfile.create(defaultData);
+    }
+
+    if (!profile.diet_plan || profile.diet_plan.length === 0) {
+      const defaultDietPlan = [
+        {
+          day: "Monday",
+          totalCalories: 1850,
+          totalProtein: 110,
+          totalCarbs: 210,
+          totalFat: 60,
+          meals: [
+            { type: "Breakfast", name: "Oatmeal with berries", description: "Steel cut oats with fruit", calories: 400, protein: 15, carbs: 65, fat: 8 }
+          ]
+        },
+        {
+          day: "Tuesday",
+          totalCalories: 1920,
+          totalProtein: 120,
+          totalCarbs: 220,
+          totalFat: 65,
+          meals: [
+            { type: "Breakfast", name: "Avocado Toast with Poached Egg", description: "Whole grain sourdough, smashed avocado, and two organic eggs.", calories: 420, protein: 18, carbs: 32, fat: 12 },
+            { type: "Lunch", name: "Mediterranean Quinoa Bowl", description: "Fresh cucumbers, feta cheese, chickpeas, and lemon-herb dressing.", calories: 580, protein: 14, carbs: 45, fat: 16 },
+            { type: "Dinner", name: "Grilled Salmon & Asparagus", description: "Wild-caught salmon with roasted garlic asparagus and brown rice.", calories: 650, protein: 38, carbs: 20, fat: 22 }
+          ]
+        },
+        {
+          day: "Wednesday",
+          totalCalories: 1700,
+          totalProtein: 105,
+          totalCarbs: 180,
+          totalFat: 55,
+          meals: [
+            { type: "Breakfast", name: "Idli with Sambar", description: "Three steamed rice cakes with delicious vegetable lentil soup.", calories: 350, protein: 10, carbs: 60, fat: 4 }
+          ]
+        },
+        {
+          day: "Thursday",
+          totalCalories: 2100,
+          totalProtein: 130,
+          totalCarbs: 240,
+          totalFat: 70,
+          meals: [
+            { type: "Breakfast", name: "Poha", description: "Flattened rice cooked with onions, mustard seeds, and peanuts.", calories: 300, protein: 6, carbs: 50, fat: 8 }
+          ]
+        },
+        {
+          day: "Friday",
+          totalCalories: 1880,
+          totalProtein: 115,
+          totalCarbs: 215,
+          totalFat: 60,
+          meals: [
+            { type: "Breakfast", name: "Egg Bhurji with Roti", description: "Indian style scrambled eggs with two flatbreads.", calories: 450, protein: 22, carbs: 40, fat: 18 }
+          ]
+        },
+        {
+          day: "Saturday",
+          totalCalories: 1950,
+          totalProtein: 122,
+          totalCarbs: 225,
+          totalFat: 62,
+          meals: [
+            { type: "Breakfast", name: "Masala Dosa", description: "Crispy crepe filled with spiced potatoes, served with coconut chutney.", calories: 410, protein: 8, carbs: 68, fat: 12 }
+          ]
+        },
+        {
+          day: "Sunday",
+          totalCalories: 1800,
+          totalProtein: 110,
+          totalCarbs: 205,
+          totalFat: 58,
+          meals: [
+            { type: "Breakfast", name: "Upma", description: "Savory semolina porridge cooked with mixed vegetables.", calories: 320, protein: 8, carbs: 48, fat: 10 }
+          ]
+        }
+      ];
+      profile.diet_plan = defaultDietPlan;
+      profile.markModified("diet_plan");
+      await profile.save();
     }
 
     const dayPlan = profile.diet_plan.find(d => d.day.toLowerCase() === day.toLowerCase());

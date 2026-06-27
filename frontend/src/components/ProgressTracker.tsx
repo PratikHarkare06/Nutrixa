@@ -208,7 +208,7 @@ export const ProgressTracker = ({ onWeightUpdate }: { onWeightUpdate?: () => voi
         
         {isLoading ? (
           <div className="h-64 flex items-center justify-center text-textMuted">Loading chart...</div>
-        ) : logs.length > 0 ? (
+        ) : logs.length >= 2 ? (
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -246,8 +246,10 @@ export const ProgressTracker = ({ onWeightUpdate }: { onWeightUpdate?: () => voi
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="h-64 flex items-center justify-center text-textMuted border border-dashed border-border rounded-2xl">
-            No composition data logged yet
+          <div className="h-64 flex flex-col items-center justify-center text-textMuted border border-dashed border-border rounded-2xl p-6 text-center">
+            <ScaleIcon className="w-8 h-8 mb-2 text-textMuted opacity-50" />
+            <p className="text-sm font-semibold">Log at least 2 entries to see progression charts</p>
+            <p className="text-xs text-textMuted/80 mt-1">This will plot your weight, body fat %, and muscle trends over time.</p>
           </div>
         )}
       </div>

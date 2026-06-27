@@ -25,6 +25,10 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  useEffect(() => {
+    document.body.style.overflow = "unset";
+  }, [pathname]);
+
   const navigate = (nextPath: string) => {
     window.history.pushState({}, "", nextPath);
     setPathname(nextPath);

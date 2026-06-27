@@ -38,6 +38,10 @@ const logSleep = async (req, res, next) => {
       { new: true, upsert: true }
     );
 
+    // Award XP
+    const { awardXP } = require("../services/gamificationService");
+    await awardXP(null, "LOG_SLEEP");
+
     res.status(200).json({
       success: true,
       data: log,
