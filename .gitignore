@@ -9,6 +9,9 @@ backend/uploads/*
 # Environment secrets — never commit
 backend/.env
 frontend/.env
+frontend/.env.local
+*.env
+*.env.local
 
 # Python virtual environment
 backend/venv/
