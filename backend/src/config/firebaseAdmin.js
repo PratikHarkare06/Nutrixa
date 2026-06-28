@@ -2,7 +2,7 @@
 const admin = require("firebase-admin");
 
 try {
-  if (!admin.apps.length) {
+  if (!admin.apps || admin.apps.length === 0) {
     const config = {};
     if (process.env.FIREBASE_PROJECT_ID) {
       config.projectId = process.env.FIREBASE_PROJECT_ID;
