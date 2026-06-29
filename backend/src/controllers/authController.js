@@ -1,5 +1,4 @@
 // authController.js — Firebase-first auth controller
-const admin = require("../config/firebaseAdmin");
 const { User } = require("../models/User");
 const { createAppError } = require("../utils/createAppError");
 
