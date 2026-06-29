@@ -35,3 +35,8 @@ export const completeWorkoutSessionRequest = async (
   });
   return response.data;
 };
+
+export const fetchWorkoutLogsRequest = async (): Promise<{ success: boolean; data: any[] }> => {
+  const response = await workoutApi.get("/workout/history");
+  return response.data;
+};

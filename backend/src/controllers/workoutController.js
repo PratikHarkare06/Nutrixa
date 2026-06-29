@@ -109,4 +109,13 @@ const completeWorkoutSession = async (req, res, next) => {
   }
 };
 
-module.exports = { generateWorkoutPlan, getWorkoutPlan, completeWorkoutSession };
+const getWorkoutLogs = async (req, res, next) => {
+  try {
+    const logs = await WorkoutLog.find({ userId: req.user._id }).sort({ date: -1 }).limit(10).lean();
+    res.status(200).json({ success: true, data: logs });
+  } catch (error) {
+    next(createAppError(500, "FETCH_FAILED", "Failed to fetch workout logs."));
+  }
+};
+
+module.exports = { generateWorkoutPlan, getWorkoutPlan, completeWorkoutSession, getWorkoutLogs };

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useAuthStore } from "../store/authStore";
 import { UploadCard } from "../components/UploadCard";
 import { useUploadStore } from "../store/uploadStore";
@@ -6,23 +6,15 @@ import { Area, AreaChart, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import { SearchIcon, FireIcon, WaterIcon, CameraIcon, SpinnerIcon, CloseIcon } from "../components/icons";
 import { BarcodeScanner } from "../components/BarcodeScanner";
 import { fetchHistoryRequest, addWaterRequest } from "../services/historyApi";
-import { fetchDashboardStatsRequest, updateWorkoutIntensityRequest } from "../services/profileApi";
+import { fetchDashboardStatsRequest, updateWorkoutIntensityRequest, fetchProfileRequest, fetchProgressLogsRequest, fetchSleepLogsRequest } from "../services/profileApi";
+import { fetchWorkoutLogsRequest } from "../services/workoutApi";
 
 type DashboardPageProps = {
   onUploadSuccess: () => void;
   onNavigate?: (path: string) => void;
 };
 
-// Mock data for calorie trend chart
-const calorieTrendData = [
-  { day: "M", calories: 1100 },
-  { day: "T", calories: 1250 },
-  { day: "W", calories: 1050 },
-  { day: "T", calories: 1180 },
-  { day: "F", calories: 1350 },
-  { day: "S", calories: 1200 },
-  { day: "S", calories: 1240 },
-];
+// Calorie trend data is calculated dynamically below
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -62,9 +54,6 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const [todayMacros, setTodayMacros] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [macroAdvice, setMacroAdvice] = useState("");
 
-  // Goals (approximate defaults matching Nutrixa targets)
-  const GOALS = { calories: 1900, protein: 120, carbs: 200, fat: 60 };
-
   // Dynamic Hydration Coach state
   const [workoutIntensity, setWorkoutIntensity] = useState<"rest" | "light" | "moderate" | "intense">("moderate");
   const [hydrationStreak, setHydrationStreak] = useState(0);
@@ -73,20 +62,64 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const [mealLogsWeek, setMealLogsWeek] = useState<boolean[]>([false, false, false, false, false, false, false]);
   const [consistencyScore, setConsistencyScore] = useState(0);
 
+  const [profile, setProfile] = useState<any>(null);
+  const [sleepLogs, setSleepLogs] = useState<any[]>([]);
+  const [workoutLogs, setWorkoutLogs] = useState<any[]>([]);
+  const [progressLogs, setProgressLogs] = useState<any[]>([]);
+  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+
+  // Dynamic Goals based on Profile
+  const GOALS = useMemo(() => {
+    const defaultGoals = { calories: 1900, protein: 120, carbs: 200, fat: 60 };
+    if (!profile) return defaultGoals;
+    const calories = profile.maintenanceCalories || defaultGoals.calories;
+    const protein = Math.round((calories * 0.25) / 4);
+    const carbs = Math.round((calories * 0.45) / 4);
+    const fat = Math.round((calories * 0.30) / 9);
+    return { calories, protein, carbs, fat };
+  }, [profile]);
+
   const HYDRATION_GOALS: Record<string, number> = {
     rest: 2000,
     light: 2500,
     moderate: 3000,
     intense: 3500,
   };
-  const waterGoal = HYDRATION_GOALS[workoutIntensity];
+  const waterGoal = HYDRATION_GOALS[workoutIntensity] || 2500;
+
+  // Dynamically calculated Calorie Trend Data for past 7 days
+  const calorieTrendData = useMemo(() => {
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().split("T")[0];
+    }).reverse();
+
+    const map: Record<string, number> = {};
+    historyLogs.forEach(item => {
+      if (!item.createdAt || !item.macros?.calories) return;
+      const dateStr = new Date(item.createdAt).toISOString().split("T")[0];
+      map[dateStr] = (map[dateStr] || 0) + item.macros.calories;
+    });
+
+    return dates.map(dateStr => {
+      const calories = map[dateStr] || 0;
+      const dayLetter = new Date(dateStr).toLocaleDateString("en-US", { weekday: "short" }).substring(0, 1);
+      return {
+        day: dayLetter,
+        calories,
+      };
+    });
+  }, [historyLogs]);
 
   const loadDashboardStats = async () => {
     if (!isAuthenticated) return;
     try {
       const res = await fetchDashboardStatsRequest();
+      let dStreak = 0;
       if (res.success) {
         const d = res.data;
+        dStreak = d.mealStreak;
         setHydrationML(d.hydrationML);
         setWorkoutIntensity(d.workoutIntensity);
         setHydrationStreak(d.hydrationStreak);
@@ -94,17 +127,43 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
         setMealStreak(d.mealStreak);
         setMealLogsWeek(d.mealLogsWeek || [false,false,false,false,false,false,false]);
         setConsistencyScore(d.consistencyScore);
+      }
 
-        setNotifications(prev => prev.map(n => {
-          if (n.type === "streak") {
-            return {
-              ...n,
-              title: `${d.mealStreak} Day Streak!`,
-              text: `Alex, you have maintained a ${d.mealStreak}-day food logging consistency.`
-            };
-          }
-          return n;
-        }));
+      // Load Profile
+      const profRes = await fetchProfileRequest();
+      let uName = "User";
+      if (profRes.success) {
+        setProfile(profRes.data);
+        uName = profRes.data.fullName || "User";
+      }
+
+      setNotifications(prev => prev.map(n => {
+        if (n.type === "streak") {
+          return {
+            ...n,
+            title: `${dStreak} Day Streak!`,
+            text: `${uName}, you have maintained a ${dStreak}-day food logging consistency.`
+          };
+        }
+        return n;
+      }));
+
+      // Load Sleep Logs
+      const sleepRes = await fetchSleepLogsRequest();
+      if (sleepRes.success) {
+        setSleepLogs(sleepRes.data || []);
+      }
+
+      // Load Workout Logs
+      const workoutRes = await fetchWorkoutLogsRequest();
+      if (workoutRes.success) {
+        setWorkoutLogs(workoutRes.data || []);
+      }
+
+      // Load Progress Logs
+      const progRes = await fetchProgressLogsRequest();
+      if (progRes.success) {
+        setProgressLogs(progRes.data || []);
       }
     } catch (err) {
       console.error("Failed to load dashboard stats", err);
@@ -175,6 +234,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
     const loadTodayMacros = async () => {
       try {
         const res = await fetchHistoryRequest({ limit: 20, page: 1, sort: "desc", signal: controller.signal });
+        setHistoryLogs(res.data || []);
         const today = new Date().toDateString();
         const todayEntries = (res.data || []).filter((e: any) => new Date(e.createdAt).toDateString() === today);
         const totals = todayEntries.reduce(
@@ -193,11 +253,22 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
           fat: Math.round(totals.fat),
         });
 
+        // Calculate dynamic goals inside callback to avoid stale closures
+        const profRes = await fetchProfileRequest(controller.signal);
+        const profileData = profRes.success ? profRes.data : null;
+
+        const currentGoals = {
+          calories: profileData?.maintenanceCalories || 1900,
+          protein: profileData?.maintenanceCalories ? Math.round((profileData.maintenanceCalories * 0.25) / 4) : 120,
+          carbs: profileData?.maintenanceCalories ? Math.round((profileData.maintenanceCalories * 0.45) / 4) : 200,
+          fat: profileData?.maintenanceCalories ? Math.round((profileData.maintenanceCalories * 0.30) / 9) : 60,
+        };
+
         // Generate adaptive advice
-        const pctProt = (totals.protein / 120) * 100;
-        const pctCarbs = (totals.carbs / 200) * 100;
-        const pctFat = (totals.fat / 60) * 100;
-        const pctCal = (totals.calories / 1900) * 100;
+        const pctProt = (totals.protein / currentGoals.protein) * 100;
+        const pctCarbs = (totals.carbs / currentGoals.carbs) * 100;
+        const pctFat = (totals.fat / currentGoals.fat) * 100;
+        const pctCal = (totals.calories / currentGoals.calories) * 100;
 
         let advice = "";
         if (pctProt < 30 && pctCarbs > 60) {
@@ -209,7 +280,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
         } else if (pctCal < 30 && todayEntries.length === 0) {
           advice = "No meals logged yet today. Start tracking to get personalized macro coaching and keep your nutrition on track!";
         } else if (pctCal < 40) {
-          advice = `You've consumed ${Math.round(totals.calories)} kcal out of your 1,900 kcal goal. Don't skip meals — your body needs consistent fuel to maintain metabolism.`;
+          advice = `You've consumed ${Math.round(totals.calories)} kcal out of your ${currentGoals.calories.toLocaleString()} kcal goal. Don't skip meals — your body needs consistent fuel to maintain metabolism.`;
         } else if (pctCal > 95) {
           advice = "You're close to your calorie limit for today. Stick to high-volume, low-calorie options like salad, broth soups, or cucumber for any evening snacks.";
         } else {
@@ -727,52 +798,77 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
               </div>
 
               {/* Calories Card */}
-              <div className="bg-white border border-[#E8815A]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(232,129,90,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(232,129,90,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs text-textMuted font-semibold">Calories</span>
-                  <span className="w-7 h-7 rounded-full bg-[#FEF0EB] border border-[#FEE2D5] flex items-center justify-center text-xs">
-                    🔥
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xl font-extrabold text-textHeading">1,240 <span className="text-xs text-textMuted font-medium">kcal</span></div>
-                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
-                    <div className="bg-[#E8815A] h-full rounded-full" style={{ width: "62%" }} />
+              {(() => {
+                const calPct = Math.min(100, Math.round((todayMacros.calories / GOALS.calories) * 100));
+                return (
+                  <div className="bg-white border border-[#E8815A]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(232,129,90,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(232,129,90,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs text-textMuted font-semibold">Calories</span>
+                      <span className="w-7 h-7 rounded-full bg-[#FEF0EB] border border-[#FEE2D5] flex items-center justify-center text-xs">
+                        🔥
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-xl font-extrabold text-textHeading">
+                        {todayMacros.calories.toLocaleString()} <span className="text-xs text-textMuted font-medium">kcal</span>
+                      </div>
+                      <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
+                        <div className="bg-[#E8815A] h-full rounded-full transition-all duration-500" style={{ width: `${calPct}%` }} />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Sleep Card */}
-              <div className="bg-white border border-[#7A9EBE]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,190,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,190,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs text-textMuted font-semibold">Sleep</span>
-                  <span className="w-7 h-7 rounded-full bg-[#EBF2F8] border border-blueLight flex items-center justify-center text-xs">
-                    🌙
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xl font-extrabold text-textHeading">7.5 <span className="text-xs text-textMuted font-medium">hrs</span></div>
-                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
-                    <div className="bg-[#7A9EBE] h-full rounded-full" style={{ width: "93%" }} />
+              {(() => {
+                const todayStr = new Date().toISOString().split("T")[0];
+                const todaySleepLog = sleepLogs.find(log => log.date === todayStr);
+                const sleepHrs = todaySleepLog ? todaySleepLog.duration_hours : 0;
+                const sleepLabel = sleepHrs > 0 ? `${sleepHrs} hrs` : "0.0 hrs";
+                const sleepPct = sleepHrs > 0 ? Math.min(100, Math.round((sleepHrs / 8) * 100)) : 0;
+                return (
+                  <div className="bg-white border border-[#7A9EBE]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(122,158,190,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(122,158,190,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs text-textMuted font-semibold">Sleep</span>
+                      <span className="w-7 h-7 rounded-full bg-[#EBF2F8] border border-blueLight flex items-center justify-center text-xs">
+                        🌙
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-xl font-extrabold text-textHeading">{sleepLabel}</div>
+                      <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
+                        <div className="bg-[#7A9EBE] h-full rounded-full transition-all duration-500" style={{ width: `${sleepPct}%` }} />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Active Card */}
-              <div className="bg-white border border-[#D4A847]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(212,168,71,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(212,168,71,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs text-textMuted font-semibold">Active</span>
-                  <span className="w-7 h-7 rounded-full bg-[#FEF9EB] border border-[#FDF0CD] flex items-center justify-center text-xs">
-                    ⚡
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xl font-extrabold text-textHeading">45 <span className="text-xs text-textMuted font-medium">min</span></div>
-                  <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
-                    <div className="bg-[#D4A847] h-full rounded-full" style={{ width: "75%" }} />
+              {(() => {
+                const todayStr = new Date().toISOString().split("T")[0];
+                const todayWorkoutLogs = workoutLogs.filter(log => log.date === todayStr);
+                const activeMins = todayWorkoutLogs.reduce((sum, log) => sum + (log.duration_mins || 0), 0);
+                const activeLabel = activeMins > 0 ? `${activeMins} min` : "0 min";
+                const activePct = activeMins > 0 ? Math.min(100, Math.round((activeMins / 60) * 100)) : 0;
+                return (
+                  <div className="bg-white border border-[#D4A847]/20 rounded-2xl p-4 shadow-[0_2px_12px_-3px_rgba(212,168,71,0.06)] hover:shadow-[0_4px_16px_-2px_rgba(212,168,71,0.12)] transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between h-32">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs text-textMuted font-semibold">Active</span>
+                      <span className="w-7 h-7 rounded-full bg-[#FEF9EB] border border-[#FDF0CD] flex items-center justify-center text-xs">
+                        ⚡
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-xl font-extrabold text-textHeading">{activeLabel}</div>
+                      <div className="w-full bg-[#F5F5F0] h-1.5 rounded-full overflow-hidden mt-2">
+                        <div className="bg-[#D4A847] h-full rounded-full transition-all duration-500" style={{ width: `${activePct}%` }} />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
             </div>
           </div>
 
