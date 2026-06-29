@@ -18,6 +18,55 @@ type DashboardPageProps = {
 
 const RECIPE_SUGGESTIONS = [
   {
+    name: "Mediterranean Quinoa Bowl",
+    type: "Lunch",
+    calories: 450,
+    protein: 16,
+    carbs: 55,
+    fat: 18,
+    prepTime: "15 mins",
+    image: "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80",
+    tags: ["Vegetarian", "Gluten-Free"],
+    ingredients: [
+      "1 cup cooked Quinoa",
+      "1/2 cup Chickpeas, rinsed",
+      "1/2 cup Cucumber, diced",
+      "1/2 cup Cherry Tomatoes, halved",
+      "2 tbsp Feta Cheese, crumbled",
+      "1 tbsp Olive oil & Lemon dressing"
+    ],
+    instructions: [
+      "Place cooked quinoa in a bowl.",
+      "Arrange chickpeas, cucumber, tomatoes, and feta cheese on top.",
+      "Drizzle with olive oil and lemon dressing.",
+      "Toss gently and serve."
+    ]
+  },
+  {
+    name: "Tofu Stir-Fry",
+    type: "Lunch",
+    calories: 390,
+    protein: 28,
+    carbs: 22,
+    fat: 12,
+    prepTime: "20 mins",
+    image: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80",
+    tags: ["High Protein", "Vegetarian"],
+    ingredients: [
+      "150g firm Tofu, cubed",
+      "1 cup Mixed Bell Peppers & Broccoli",
+      "1 tbsp Soy Sauce (low sodium)",
+      "1 tsp Sesame oil",
+      "Garlic and ginger, minced"
+    ],
+    instructions: [
+      "Heat sesame oil in a skillet and sauté garlic & ginger.",
+      "Add tofu and stir-fry until golden.",
+      "Add vegetables and cook for 5 minutes until tender-crisp.",
+      "Stir in soy sauce and serve hot."
+    ]
+  },
+  {
     name: "Paneer Tikka Salad",
     type: "Dinner",
     calories: 380,
@@ -229,34 +278,26 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
 
   // Dynamic Meal Suggestions based on remaining calories & profile diet preferences
   const mealSuggestions = useMemo(() => {
-    const loggedTypes = todayMeals.map(m => m.mealType?.toLowerCase() || "");
-    const remainingCals = Math.max(0, GOALS.calories - todayMacros.calories);
     const isVegetarian = profile?.dietaryRestrictions?.includes("Vegetarian") || profile?.dietary_restrictions?.includes("Vegetarian");
 
     const availableSuggestions = RECIPE_SUGGESTIONS.filter(recipe => {
       if (isVegetarian && recipe.tags.includes("Non-Vegetarian")) return false;
-      if (loggedTypes.includes(recipe.type.toLowerCase())) return false;
       return true;
     });
 
-    const hour = new Date().getHours();
-    let preferredTypes: string[] = [];
-    if (hour < 11) {
-      preferredTypes = ["breakfast", "snack", "lunch", "dinner"];
-    } else if (hour < 16) {
-      preferredTypes = ["lunch", "snack", "dinner", "breakfast"];
-    } else {
-      preferredTypes = ["dinner", "snack", "lunch", "breakfast"];
-    }
+    // Suggest exactly one recipe from each category: Breakfast, Lunch, Dinner, Snack
+    const categories = ["Breakfast", "Lunch", "Dinner", "Snack"];
+    const selectedSuggestions: any[] = [];
 
-    const sorted = [...availableSuggestions].sort((a, b) => {
-      const aIdx = preferredTypes.indexOf(a.type.toLowerCase());
-      const bIdx = preferredTypes.indexOf(b.type.toLowerCase());
-      return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+    categories.forEach(cat => {
+      const matching = availableSuggestions.filter(r => r.type.toLowerCase() === cat.toLowerCase());
+      if (matching.length > 0) {
+        selectedSuggestions.push(matching[0]);
+      }
     });
 
-    return sorted.filter(r => r.calories <= remainingCals || remainingCals > 500).slice(0, 2);
-  }, [todayMeals, GOALS, todayMacros, profile]);
+    return selectedSuggestions;
+  }, [profile]);
 
   const HYDRATION_GOALS: Record<string, number> = {
     rest: 2000,
