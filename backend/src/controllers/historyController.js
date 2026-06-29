@@ -95,6 +95,11 @@ const addWater = async (req, res, next) => {
         water_intake_ml: entry.water_intake_ml
       }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const logCustomMeal = async (req, res, next) => {
   try {
     const { name, calories, protein, carbs, fat, mealType, imageUrl } = req.body;
