@@ -115,7 +115,7 @@ const protect = async (req, res, next) => {
     next();
   } catch (firebaseErr) {
     console.error("Firebase token verification failed:", firebaseErr.message);
-    return next(createAppError(401, "UNAUTHORIZED", "Session expired. Please log in again."));
+    return next(createAppError(401, "UNAUTHORIZED", `Firebase token verification failed: ${firebaseErr.message}`));
   }
 };
 
