@@ -1,13 +1,5 @@
-import axios from "axios";
+import { apiClient as workoutApi } from "./apiClient";
 import type { DailyWorkoutPlan } from "../types";
-import { API_BASE_URL } from "./apiConfig";
-
-const workoutApi = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
 
 export const generateWorkoutPlanRequest = async (signal?: AbortSignal): Promise<{ success: boolean; data: DailyWorkoutPlan[] }> => {
   const response = await workoutApi.post("/workout/generate", {}, { signal });
