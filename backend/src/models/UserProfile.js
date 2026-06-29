@@ -125,7 +125,7 @@ const userProfileSchema = new mongoose.Schema(
     },
   },
   {
-    collection: "users",
+    collection: "user_profiles",
     timestamps: {
       createdAt: "created_at",
       updatedAt: "updated_at",
