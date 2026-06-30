@@ -327,7 +327,8 @@ For ingredients — STRICT RULES:
 7. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce").
 8. Maximum 6 ingredients. Focus ONLY on the major caloric components.
 9. Do NOT list cooking methods as ingredients.
-10. RAW/UNCOOKED INGREDIENTS: If the image depicts raw, uncooked ingredients (such as raw chicken drumsticks, raw vegetables, or whole fruits), list them exactly as they are (e.g. "raw chicken drumsticks") rather than guessing cooked dishes (e.g. do not guess "chicken stew" for raw chicken).`;
+10. RAW/UNCOOKED INGREDIENTS: If the image depicts raw, uncooked ingredients (such as raw chicken drumsticks, raw vegetables, or whole fruits), list them exactly as they are (e.g. "raw chicken drumsticks") rather than guessing cooked dishes (e.g. do not guess "chicken stew" for raw chicken).
+11. COMPOSITE DISHES: For composite/multi-component meals (such as Pav Bhaji, Chole Bhature, Burger and Fries, Idli Sambar, Dosa Chutney, Steak and Mashed Potatoes), DO NOT list the combined dish name (e.g. "Pav Bhaji") as a single ingredient. Instead, list the main constituent components as separate ingredients (e.g. "pav bread", "bhaji curry", "butter"; or "bhature bread", "chole curry"; or "burger bun", "beef patty", "french fries"). This is critical so we can calculate the calories of each main part correctly.`;
 };
 
 const parseVisionResponse = (text) => {
