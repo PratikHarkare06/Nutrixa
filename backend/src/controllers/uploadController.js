@@ -15,13 +15,15 @@ const uploadImage = async (req, res, next) => {
     const imageUrl = getImageUrl(req, req.file.filename);
     const userMealType = (req.body.mealType || "").trim().toLowerCase();
     const uploadId = req.body.uploadId;
+    const userDishName = (req.body.dishName || "").trim();
     
     const analysis = await analyzeFoodWithFatSecret(
       req.file.path, 
       req.file.mimetype, 
       imageUrl, 
       userMealType, 
-      uploadId
+      uploadId,
+      userDishName
     );
     let responseData;
     if (req.user) {

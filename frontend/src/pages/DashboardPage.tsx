@@ -237,6 +237,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const progressMessage = useUploadStore((state) => state.progressMessage);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadDishName, setUploadDishName] = useState("");
   const [hydrationML, setHydrationML] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([
@@ -660,15 +661,17 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
       recognitionRef.current.stop();
     }
     setIsRecording(false);
+    setUploadDishName("");
     setIsUploadModalOpen(false);
   };
 
   // Handle successful scan
   const handleFileSelected = async (file: File | null) => {
     clearError();
-    const success = await uploadImage(file, "auto");
+    const success = await uploadImage(file, "auto", uploadDishName);
     if (success) {
       setIsUploadModalOpen(false);
+      setUploadDishName("");
       onUploadSuccess();
     }
   };
@@ -1527,16 +1530,36 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
             
             <div className="mt-4">
               {loggingMode === "image" ? (
-                <UploadCard
-                  dragActive={dragActive}
-                  errorMessage={errorMessage}
-                  isUploading={isUploading}
-                  onDragChange={(active) => {
-                    clearError();
-                    setDragActive(active);
-                  }}
-                  onFileSelected={handleFileSelected}
-                />
+                <div className="space-y-4">
+                  <div className="w-full max-w-2xl mx-auto bg-[#F5F6F1] border border-border rounded-2xl p-4 flex flex-col gap-2 shadow-sm">
+                    <label htmlFor="dishNameInput" className="text-xs font-bold text-textHeading flex items-center gap-1.5">
+                      <span>🍽️ What is this dish? (Optional hint)</span>
+                    </label>
+                    <input
+                      id="dishNameInput"
+                      type="text"
+                      value={uploadDishName}
+                      onChange={(e) => setUploadDishName(e.target.value)}
+                      placeholder="e.g. Pav Bhaji, Lobia Curry with Roti, Chole Bhature..."
+                      className="w-full bg-white border border-[#E2E4DC] focus:border-primary rounded-xl px-3.5 py-2.5 text-sm font-semibold text-textHeading outline-none transition-all shadow-inner"
+                      disabled={isUploading}
+                    />
+                    <span className="text-[10px] text-textMuted font-medium">
+                      Providing the dish name guides the AI to map ingredients with 100% precision.
+                    </span>
+                  </div>
+
+                  <UploadCard
+                    dragActive={dragActive}
+                    errorMessage={errorMessage}
+                    isUploading={isUploading}
+                    onDragChange={(active) => {
+                      clearError();
+                      setDragActive(active);
+                    }}
+                    onFileSelected={handleFileSelected}
+                  />
+                </div>
               ) : loggingMode === "voice" ? (
                 <div className="w-full flex flex-col items-center">
                   {/* Waveform Visualizer */}

@@ -22,7 +22,7 @@ type UploadState = {
   setDragActive: (dragActive: boolean) => void;
   clearError: () => void;
   cancelUpload: () => void;
-  uploadImage: (file: File | null, mealType?: string) => Promise<boolean>;
+  uploadImage: (file: File | null, mealType?: string, dishName?: string) => Promise<boolean>;
   scanBarcode: (barcode: string) => Promise<boolean>;
   uploadPantryImage: (file: File | null) => Promise<boolean>;
   addIngredientsToPantry: (ingredients: string[]) => void;
@@ -83,7 +83,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
     set({ controller: null, isUploading: false, progressMessage: "" });
   },
-  uploadImage: async (file, mealType) => {
+  uploadImage: async (file, mealType, dishName) => {
     const validationMessage = getClientValidationMessage(file);
 
     if (validationMessage) {
@@ -119,7 +119,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     };
 
     try {
-      const response = await uploadImageRequest(uploadFile, mealType, uploadId, controller.signal);
+      const response = await uploadImageRequest(uploadFile, mealType, uploadId, controller.signal, dishName);
 
       eventSource.close();
       set({

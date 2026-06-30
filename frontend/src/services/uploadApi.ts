@@ -7,11 +7,13 @@ export const uploadImageRequest = async (
   mealType?: string,
   uploadId?: string,
   signal?: AbortSignal,
+  dishName?: string,
 ): Promise<UploadSuccessResponse> => {
   const formData = new FormData();
   formData.append("image", file);
   if (mealType) formData.append("mealType", mealType);
   if (uploadId) formData.append("uploadId", uploadId);
+  if (dishName) formData.append("dishName", dishName);
 
   let lastError: unknown;
 

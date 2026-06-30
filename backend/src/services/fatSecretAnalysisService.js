@@ -299,12 +299,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ─── Shared vision prompt builder ─────────────────────────────────────────────
 
-const buildVisionPrompt = (userMealType = "") => {
+const buildVisionPrompt = (userMealType = "", userDishName = "") => {
   const mealHint = userMealType
     ? `\nContext: The user says this is a ${userMealType}. Use this as a hint for portion sizes but do NOT let it limit ingredient detection — the image is the primary source of truth.`
     : "";
 
-  return `You are a food recognition expert analyzing a food photograph.${mealHint}
+  const dishHint = userDishName
+    ? `\nContext: The user specified that this dish is: "${userDishName}". Since the user explicitly knows what they cooked/ordered, use this as a strong guide to identify the constituent ingredients. For example, if they specify "Pav Bhaji", make sure to output "pav bread", "bhaji curry", and "butter" in your ingredients array.`
+    : "";
+
+  return `You are a food recognition expert analyzing a food photograph.${mealHint}${dishHint}
 
 Return ONLY a raw JSON object with this exact structure:
 {
@@ -351,7 +355,7 @@ const parseVisionResponse = (text) => {
 
 // ─── Nvidia API Vision (backup for Gemini rate limits) ─────────────────────────
 
-const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") => {
+const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "", userDishName = "") => {
   const apiKey = (process.env.NIM_API_KEY || process.env.NVIDIA_API || process.env.NVIDIA_API_KEY || "").trim();
   if (!apiKey) return null;
 
@@ -376,7 +380,7 @@ const analyzeImageWithNvidia = async (imagePath, mimeType, userMealType = "") =>
           {
             role: "user",
             content: [
-              { type: "text", text: buildVisionPrompt(userMealType) },
+              { type: "text", text: buildVisionPrompt(userMealType, userDishName) },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
           }
@@ -414,13 +418,13 @@ const GEMINI_MODELS = [
   "gemini-flash-lite-latest"
 ];
 
-const analyzeImageWithGemini = async (imagePath, mimeType, userMealType = "") => {
+const analyzeImageWithGemini = async (imagePath, mimeType, userMealType = "", userDishName = "") => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   const ai = new GoogleGenAI({ apiKey });
   const base64Image = fs.readFileSync(imagePath).toString("base64");
-  const prompt = buildVisionPrompt(userMealType);
+  const prompt = buildVisionPrompt(userMealType, userDishName);
 
   // Try each model with up to 2 retries + quick backoff on 429 to avoid frontend 30s timeout
   for (const model of GEMINI_MODELS) {
@@ -460,15 +464,15 @@ const analyzeImageWithGemini = async (imagePath, mimeType, userMealType = "") =>
 
 // ─── Combined vision analysis: Gemini → Groq → fail ──────────────────────────
 
-const analyzeImageWithVision = async (imagePath, mimeType, userMealType = "") => {
+const analyzeImageWithVision = async (imagePath, mimeType, userMealType = "", userDishName = "") => {
   // 1. Try Gemini (primary)
   console.log("[Vision] Trying Gemini Vision as primary model");
-  const geminiResult = await analyzeImageWithGemini(imagePath, mimeType, userMealType);
+  const geminiResult = await analyzeImageWithGemini(imagePath, mimeType, userMealType, userDishName);
   if (geminiResult) return geminiResult;
 
   // 2. Try Nvidia API (backup)
   console.warn("[Vision] Gemini Vision failed or exhausted — trying Nvidia API Vision as backup");
-  const nvidiaResult = await analyzeImageWithNvidia(imagePath, mimeType, userMealType);
+  const nvidiaResult = await analyzeImageWithNvidia(imagePath, mimeType, userMealType, userDishName);
   if (nvidiaResult) return nvidiaResult;
 
   // 3. Both failed
@@ -585,7 +589,7 @@ const getTypicalPortionWeight = (foodName, originalName = "") => {
 
 // ─── Main Analysis ────────────────────────────────────────────────────────────
 
-const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealType = "", uploadId = null) => {
+const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealType = "", uploadId = null, userDishName = "") => {
   const notify = (stage, msg) => {
     if (uploadId) emitProgress(uploadId, stage, msg);
   };
@@ -600,7 +604,7 @@ const analyzeFoodWithFatSecret = async (imagePath, mimeType, imageUrl, userMealT
   const yoloBoxes = yoloData.boxes || [];
 
   const [geminiData, midasResult] = await Promise.all([
-    analyzeImageWithVision(imagePath, mimeType, userMealType),
+    analyzeImageWithVision(imagePath, mimeType, userMealType, userDishName),
     runMiDaS(imagePath, bboxRatio, yoloBoxes),
   ]);
 
