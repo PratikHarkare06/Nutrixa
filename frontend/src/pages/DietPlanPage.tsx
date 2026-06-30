@@ -190,17 +190,50 @@ export const DietPlanPage = () => {
 
   const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   
+  // Calculate date information for the current week (Monday - Sunday) to make the calendar real-time
+  const currentWeekDays = useMemo(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diffToMonday));
+    
+    const week = [];
+    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      week.push({
+        dayName: dayNames[i],
+        dateNum: d.getDate().toString(),
+        monthYear: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      });
+    }
+    return week;
+  }, []);
+
+  const currentMonthYear = useMemo(() => {
+    if (currentWeekDays.length > 0) {
+      return currentWeekDays[0].monthYear;
+    }
+    return new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }, [currentWeekDays]);
+
   const planList = profile?.dietPlan && profile.dietPlan.length > 0 ? profile.dietPlan : defaultDietPlan;
   const activePlan = planList.find(d => d.day === selectedDay) || planList[1];
 
   const getDayLabel = (day: string) => {
+    const dayInfo = currentWeekDays.find(d => d.dayName.toLowerCase() === day.toLowerCase());
+    const num = dayInfo ? dayInfo.dateNum : "1";
+    const label = day.substring(0, 3).toUpperCase();
+
     switch (day) {
-      case "Monday": return { num: "23", title: "Detox & High Pr...", label: "MON", count: "4 Meals" };
-      case "Tuesday": return { num: "24", title: "Balanced Energy", label: "TUE", count: "3 Meals" };
-      case "Wednesday": return { num: "25", title: "Low Carb Focus", label: "WED", count: "4 Meals" };
-      case "Thursday": return { num: "26", title: "Muscle Recovery", label: "THU", count: "5 Meals" };
-      case "Friday": return { num: "27", title: "Healthy Fats", label: "FRI", count: "3 Meals" };
-      default: return { num: "28", title: "Standard Diet", label: "SAT", count: "3 Meals" };
+      case "Monday": return { num, title: "Detox & High Protein", label, count: "4 Meals" };
+      case "Tuesday": return { num, title: "Balanced Energy", label, count: "3 Meals" };
+      case "Wednesday": return { num, title: "Low Carb Focus", label, count: "4 Meals" };
+      case "Thursday": return { num, title: "Muscle Recovery", label, count: "5 Meals" };
+      case "Friday": return { num, title: "Healthy Fats", label, count: "3 Meals" };
+      default: return { num, title: "Standard Diet", label, count: "3 Meals" };
     }
   };
 
@@ -267,7 +300,7 @@ export const DietPlanPage = () => {
         
         {/* Left Column (Days timeline) */}
         <div className="space-y-6">
-          <div className="text-sm font-bold text-textHeading uppercase tracking-wider mb-2">October 2023</div>
+          <div className="text-sm font-bold text-textHeading uppercase tracking-wider mb-2">{currentMonthYear}</div>
           <div className="space-y-4">
             {planList.slice(0, 5).map((dayPlan) => {
               const active = selectedDay === dayPlan.day;
