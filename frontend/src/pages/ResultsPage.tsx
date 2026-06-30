@@ -188,6 +188,9 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const pantryAnalysis = useUploadStore((state) => state.pantryAnalysis);
   const calibrateMealWeight = useUploadStore((state) => state.calibrateMealWeight);
   const editMealIngredients = useUploadStore((state) => state.editMealIngredients);
+  const errorMessage = useUploadStore((state) => state.errorMessage);
+  const isUploading = useUploadStore((state) => state.isUploading);
+  const clearError = useUploadStore((state) => state.clearError);
   
   const [isSaved, setIsSaved] = useState(false);
   const [isDeducted, setIsDeducted] = useState(false);
@@ -290,6 +293,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
 
   const handleStartEditing = () => {
     if (!analysis) return;
+    clearError();
     const list = analysis.foods.map(f => {
       const macroInfo = analysis.ingredientsMacros?.[f.name.toLowerCase()];
       const weight = macroInfo?.portionWeight || 100;
@@ -1091,6 +1095,12 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
               </button>
             </div>
 
+            {errorMessage && (
+              <div className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-2.5 text-xs font-semibold text-danger text-center animate-pulse">
+                ⚠️ {errorMessage}
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto space-y-3.5 pr-1">
               {editList.length === 0 ? (
                 <div className="text-center py-8 text-sm text-textMuted font-medium">
@@ -1105,6 +1115,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                         id={`ingredient-name-${index}`}
                         type="text"
                         value={item.name}
+                        disabled={isUploading}
                         onChange={(e) => handleNameChange(index, e.target.value)}
                         onFocus={() => {
                           if (item.name.trim().length >= 2) {
@@ -1117,7 +1128,7 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                           }, 250);
                         }}
                         placeholder="e.g. Chicken breast"
-                        className="bg-white border border-[#E2E4DC] focus:border-[#7A9E7E] rounded-xl px-3 py-2 text-xs font-semibold text-textHeading outline-none transition-all shadow-sm w-full capitalize"
+                        className="bg-white border border-[#E2E4DC] focus:border-[#7A9E7E] rounded-xl px-3 py-2 text-xs font-semibold text-textHeading outline-none transition-all shadow-sm w-full capitalize disabled:opacity-60"
                       />
 
                       {activeSuggestionIndex === index && suggestions.length > 0 && (
@@ -1146,15 +1157,17 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                         type="number"
                         min="1"
                         value={item.weight || ""}
+                        disabled={isUploading}
                         onChange={(e) => handleUpdateWeight(index, parseInt(e.target.value) || 0)}
                         placeholder="100"
-                        className="w-full text-xs font-black text-textHeading outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full text-xs font-black text-textHeading outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-60"
                       />
                       <span className="text-[10px] text-textMuted font-black uppercase">g</span>
                     </div>
                     <button
                       onClick={() => handleRemoveIngredient(index)}
-                      className="w-8 h-8 rounded-xl bg-danger/10 hover:bg-danger/25 border border-danger/20 text-danger flex items-center justify-center transition-all shrink-0"
+                      disabled={isUploading}
+                      className="w-8 h-8 rounded-xl bg-danger/10 hover:bg-danger/25 border border-danger/20 text-danger flex items-center justify-center transition-all shrink-0 disabled:opacity-55"
                       title="Remove Ingredient"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" className="w-4 h-4">
@@ -1169,23 +1182,36 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
             <div className="flex flex-col gap-3.5 pt-2 border-t border-border">
               <button
                 onClick={handleAddIngredient}
-                className="w-full py-2.5 bg-white hover:bg-[#F5F6F1] border border-dashed border-[#7A9E7E] hover:border-[#7A9E7E] text-[#7A9E7E] rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+                disabled={isUploading}
+                className="w-full py-2.5 bg-white hover:bg-[#F5F6F1] border border-dashed border-[#7A9E7E] hover:border-[#7A9E7E] text-[#7A9E7E] rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-55"
               >
                 ➕ Add Ingredient
               </button>
               
               <div className="flex gap-2">
                 <button
-                  onClick={() => setIsEditingIngredients(false)}
-                  className="flex-1 py-3 bg-[#E2E4DC] hover:bg-[#D4D6CC] text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm"
+                  onClick={() => {
+                    clearError();
+                    setIsEditingIngredients(false);
+                  }}
+                  disabled={isUploading}
+                  className="flex-1 py-3 bg-[#E2E4DC] hover:bg-[#D4D6CC] text-textHeading rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-55"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveChanges}
-                  className="flex-1 py-3 bg-primary hover:bg-primary/95 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                  disabled={isUploading}
+                  className="flex-1 py-3 bg-primary hover:bg-primary/95 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-55"
                 >
-                  Save Changes
+                  {isUploading ? (
+                    <>
+                      <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full shrink-0"></span>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </button>
               </div>
             </div>

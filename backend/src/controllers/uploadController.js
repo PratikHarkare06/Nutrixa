@@ -1,4 +1,5 @@
 const { env } = require("../config/env");
+const mongoose = require("mongoose");
 const { FoodEntry, mapFoodEntryToAnalysis } = require("../models/FoodEntry");
 const { analyzeFoodWithFatSecret, getNutritionalData, getFatSecretToken } = require("../services/fatSecretAnalysisService");
 const { createAppError } = require("../utils/createAppError");
@@ -377,14 +378,14 @@ const calibrateMealWeight = async (req, res, next) => {
 
 const editMealIngredients = async (req, res, next) => {
   const { analysisId, ingredients } = req.body;
-  if (!analysisId || !Array.isArray(ingredients)) {
-    return next(createAppError(400, "INVALID_DATA", "analysisId and an ingredients array are required."));
+  if (!Array.isArray(ingredients)) {
+    return next(createAppError(400, "INVALID_DATA", "An ingredients array is required."));
   }
 
   try {
-    const entry = await FoodEntry.findById(analysisId);
-    if (!entry) {
-      return next(createAppError(404, "NOT_FOUND", "Logged meal not found."));
+    let entry = null;
+    if (analysisId && mongoose.Types.ObjectId.isValid(analysisId)) {
+      entry = await FoodEntry.findById(analysisId);
     }
 
     let fatSecretToken = null;
@@ -410,7 +411,7 @@ const editMealIngredients = async (req, res, next) => {
       totalWeight += weight;
 
       let details = null;
-      if (entry.ingredients_macros && entry.ingredients_macros.has(name)) {
+      if (entry && entry.ingredients_macros && entry.ingredients_macros.has(name)) {
         const oldVal = entry.ingredients_macros.get(name);
         details = {
           calories: oldVal.calories,
@@ -457,22 +458,44 @@ const editMealIngredients = async (req, res, next) => {
       totalFiber += portionFiber;
     }
 
-    entry.foods = newFoods;
-    entry.weight = Math.round(totalWeight);
-    entry.calories = Math.round(totalCalories);
-    entry.protein = Math.round(totalProtein);
-    entry.carbs = Math.round(totalCarbs);
-    entry.fat = Math.round(totalFat);
-    entry.fiber = Math.round(totalFiber);
-    entry.ingredients_macros = newIngredientsMacros;
+    if (entry) {
+      entry.foods = newFoods;
+      entry.weight = Math.round(totalWeight);
+      entry.calories = Math.round(totalCalories);
+      entry.protein = Math.round(totalProtein);
+      entry.carbs = Math.round(totalCarbs);
+      entry.fat = Math.round(totalFat);
+      entry.fiber = Math.round(totalFiber);
+      entry.ingredients_macros = newIngredientsMacros;
 
-    await entry.save();
+      await entry.save();
 
-    res.status(200).json({
-      success: true,
-      message: "Meal ingredients updated successfully.",
-      data: mapFoodEntryToAnalysis(entry, req),
-    });
+      res.status(200).json({
+        success: true,
+        message: "Meal ingredients updated successfully.",
+        data: mapFoodEntryToAnalysis(entry, req),
+      });
+    } else {
+      // Guest mode or temporary entry
+      const tempEntry = {
+        foods: newFoods,
+        weight: Math.round(totalWeight),
+        calories: Math.round(totalCalories),
+        protein: Math.round(totalProtein),
+        carbs: Math.round(totalCarbs),
+        fat: Math.round(totalFat),
+        fiber: Math.round(totalFiber),
+        ingredients_macros: newIngredientsMacros,
+        id: analysisId || "",
+        image_url: req.body.imageUrl || "",
+      };
+
+      res.status(200).json({
+        success: true,
+        message: "Meal ingredients updated successfully (temporary).",
+        data: mapFoodEntryToAnalysis(tempEntry, req),
+      });
+    }
   } catch (err) {
     next(err);
   }

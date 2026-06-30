@@ -114,8 +114,9 @@ export const calibrateMealWeightRequest = async (analysisId: string, trueWeight:
 export const editMealIngredientsRequest = async (
   analysisId: string,
   ingredients: Array<{ name: string; weight: number }>,
+  imageUrl?: string,
 ) => {
-  const response = await api.post<UploadSuccessResponse>("/upload/edit-ingredients", { analysisId, ingredients });
+  const response = await api.post<UploadSuccessResponse>("/upload/edit-ingredients", { analysisId, ingredients, imageUrl });
   return response.data;
 };
 

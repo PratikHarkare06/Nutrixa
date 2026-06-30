@@ -395,7 +395,8 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     });
 
     try {
-      const response = await editMealIngredientsRequest(analysisId, ingredients);
+      const imageUrl = get().analysis?.imageUrl || "";
+      const response = await editMealIngredientsRequest(analysisId, ingredients, imageUrl);
       set({
         analysis: response.data,
         errorMessage: "",
