@@ -378,9 +378,11 @@ const generateChatResponse = async (message, history = [], context = {}) => {
 
   const ai = new GoogleGenAI({ apiKey });
 
+  const userName = context.profile?.name || context.userName || "User";
+
   const contextString = `
 User Profile:
-- Name: ${context.profile?.name || "Alex"}
+- Name: ${userName}
 - Age: ${context.profile?.age || "N/A"}
 - Gender: ${context.profile?.gender || "N/A"}
 - Height: ${context.profile?.height_cm || "N/A"} cm
@@ -409,6 +411,8 @@ ${context.profile?.workout_plan ? JSON.stringify(context.profile.workout_plan, n
   const systemInstruction = `You are "NutriBot", a friendly, empathetic, and knowledgeable AI Nutritionist and health companion.
 Your job is to support the user in achieving their health goals, answering their questions, and offering highly personalized tips.
 You have access to the user's live health dashboard metrics, current pantry stocks, today's logged meals, and active workouts.
+
+CRITICAL GREETING RULE: You MUST start your response with exactly "Hii ${userName}! " (e.g. "Hii Pratik! " or "Hii Alex! ") followed immediately by your reply. Never omit this greeting at the very start of your message.
 
 Here is the current live context of the application:
 ${contextString}

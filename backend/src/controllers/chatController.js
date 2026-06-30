@@ -12,8 +12,16 @@ const handleChat = async (req, res, next) => {
       return next(createAppError(400, "INVALID_DATA", "Message is required."));
     }
 
-    // 1. Fetch user profile
-    const profile = await UserProfile.findOne({ profile_key: "primary" }).lean();
+    // 1. Fetch user profile based on logged-in user
+    let profile = null;
+    if (req.user) {
+      profile = await UserProfile.findOne({ userId: req.user._id }).lean();
+    }
+    if (!profile) {
+      profile = await UserProfile.findOne({ profile_key: "primary" }).lean();
+    }
+    
+    const userName = req.user?.name || profile?.name || "User";
     
     // 2. Fetch today's food entries
     const todayStart = new Date();
@@ -46,6 +54,7 @@ const handleChat = async (req, res, next) => {
     // 4. Construct unified context
     const context = {
       profile,
+      userName,
       todayMeals,
       caloriesLogged,
       proteinLogged,
