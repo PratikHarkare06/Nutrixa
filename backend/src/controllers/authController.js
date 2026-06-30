@@ -46,7 +46,7 @@ const syncFirebaseUser = async (req, res, next) => {
     });
   } catch (error) {
     console.error("Sync Error:", error);
-    next(createAppError(500, "SYNC_FAILED", "Failed to sync user account."));
+    next(createAppError(500, "SYNC_FAILED", `Failed to sync user account: ${error.message}`));
   }
 };
 

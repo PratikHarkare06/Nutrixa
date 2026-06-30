@@ -15,8 +15,13 @@ const { errorHandler } = require("./middleware/errorHandler");
 const app = express();
 const uploadsDirectory = path.join(__dirname, "..", "uploads");
 
-// Mount HTTP security headers
-app.use(helmet());
+// Mount HTTP security headers configured for cross-origin Firebase popups & resource loading
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 // Configure API rate limiting (150 requests per 15 minutes per IP)
 const apiLimiter = rateLimit({
