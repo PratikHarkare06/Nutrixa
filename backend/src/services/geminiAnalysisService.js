@@ -172,7 +172,7 @@ Do not return any markdown formatting outside of the JSON.`;
 };
 
 const analyzePantryWithGemini = async (imagePath, mimeType, profile) => {
-  // 1. Identify ingredients from the image using the vision model
+  const apiKey = process.env.GEMINI_API_KEY;
   const visionPrompt = `You are a world-class culinary assistant and image recognition AI.
 Analyze this image of a fridge or pantry. Identify all the usable raw food ingredients you can see.
 Return ONLY a valid JSON object matching this exact schema:
@@ -182,13 +182,48 @@ Return ONLY a valid JSON object matching this exact schema:
 Do not include any recipes or conversational text outside of the raw JSON.`;
 
   let identifiedIngredients = [];
-  try {
-    const visionOutput = await callNvidiaNim(visionPrompt, imagePath, mimeType);
-    const parsedVision = extractJsonFromText(visionOutput);
-    identifiedIngredients = parsedVision.identifiedIngredients || [];
-  } catch (error) {
-    console.error("Nvidia Pantry Vision Error:", error);
-    throw new Error("Failed to identify ingredients from pantry image.");
+
+  if (apiKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const imageBuffer = fs.readFileSync(imagePath);
+      const base64Image = imageBuffer.toString("base64");
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            inlineData: {
+              data: base64Image,
+              mimeType: mimeType
+            }
+          },
+          visionPrompt
+        ],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.0
+        }
+      });
+      const parsedVision = extractJsonFromText(response.text);
+      identifiedIngredients = parsedVision.identifiedIngredients || [];
+      if (identifiedIngredients.length > 0) {
+        console.log(`[Pantry] ✓ Gemini Vision succeeded`);
+      }
+    } catch (error) {
+      console.warn("Gemini Pantry Vision API Error, falling back to Nvidia NIM:", error);
+    }
+  }
+
+  if (identifiedIngredients.length === 0) {
+    try {
+      const visionOutput = await callNvidiaNim(visionPrompt, imagePath, mimeType);
+      const parsedVision = extractJsonFromText(visionOutput);
+      identifiedIngredients = parsedVision.identifiedIngredients || [];
+    } catch (error) {
+      console.error("Nvidia Pantry Vision Error:", error);
+      throw new Error("Failed to identify ingredients from pantry image.");
+    }
   }
 
   if (identifiedIngredients.length === 0) {
@@ -434,13 +469,41 @@ When answering the user, use this context to customize your replies. For example
 };
 
 const analyzeReceiptWithGemini = async (imagePath, mimeType) => {
+  const apiKey = process.env.GEMINI_API_KEY;
   const prompt = `You are a professional scanner AI. Analyze this grocery shopping receipt image.
 Identify all the food ingredients and grocery items purchased.
 For each item, return its clean, simple name in English (e.g. "spinach", "milk", "chicken breast", "eggs", "greek yogurt").
 Do not return quantities, brands, serial numbers, weights, or prices. Only return the simple, generic names of food ingredients.
 Please output ONLY a valid JSON array of strings:
-["item1", "item2", ...]
-Do not wrap it in any markdown blocks or return any additional text.`;
+["item1", "item2", ...]`;
+
+  if (apiKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const imageBuffer = fs.readFileSync(imagePath);
+      const base64Image = imageBuffer.toString("base64");
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            inlineData: {
+              data: base64Image,
+              mimeType: mimeType
+            }
+          },
+          prompt
+        ],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.0
+        }
+      });
+      return extractJsonFromText(response.text);
+    } catch (error) {
+      console.warn("Gemini Receipt API Error, falling back to Nvidia NIM:", error);
+    }
+  }
 
   try {
     const textOutput = await callNvidiaNim(prompt, imagePath, mimeType);

@@ -226,7 +226,8 @@ For ingredients — STRICT RULES:
 6. For a curry/stew: list the MAIN visible components (e.g. the meat, the vegetables, and the sauce) — NOT the spices.
 7. Use simple common English names (e.g. "mozzarella cheese", "tomato sauce").
 8. Maximum 6 ingredients. Focus ONLY on the major caloric components.
-9. Do NOT list cooking methods as ingredients.`;
+9. Do NOT list cooking methods as ingredients.
+10. RAW/UNCOOKED INGREDIENTS: If the image depicts raw, uncooked ingredients (such as raw chicken drumsticks, raw vegetables, or whole fruits), list them exactly as they are (e.g. "raw chicken drumsticks") rather than guessing cooked dishes (e.g. do not guess "chicken stew" for raw chicken).`;
 };
 
 const parseVisionResponse = (text) => {
@@ -358,15 +359,15 @@ const analyzeImageWithGemini = async (imagePath, mimeType, userMealType = "") =>
 // ─── Combined vision analysis: Gemini → Groq → fail ──────────────────────────
 
 const analyzeImageWithVision = async (imagePath, mimeType, userMealType = "") => {
-  // 1. Try Nvidia API (primary) - google/diffusiongemma-26b-a4b-it
-  console.log("[Vision] Trying Nvidia API Vision (google/diffusiongemma-26b-a4b-it) as primary model");
-  const nvidiaResult = await analyzeImageWithNvidia(imagePath, mimeType, userMealType);
-  if (nvidiaResult) return nvidiaResult;
-
-  // 2. Try Gemini (backup)
-  console.warn("[Vision] Nvidia API failed or exhausted — trying Gemini Vision as backup");
+  // 1. Try Gemini (primary)
+  console.log("[Vision] Trying Gemini Vision as primary model");
   const geminiResult = await analyzeImageWithGemini(imagePath, mimeType, userMealType);
   if (geminiResult) return geminiResult;
+
+  // 2. Try Nvidia API (backup)
+  console.warn("[Vision] Gemini Vision failed or exhausted — trying Nvidia API Vision as backup");
+  const nvidiaResult = await analyzeImageWithNvidia(imagePath, mimeType, userMealType);
+  if (nvidiaResult) return nvidiaResult;
 
   // 3. Both failed
   console.error("[Vision] All vision models exhausted");
