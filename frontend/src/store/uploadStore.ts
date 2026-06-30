@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest, uploadReceiptRequest } from "../services/uploadApi";
+import { getUploadErrorMessage, uploadImageRequest, scanBarcodeRequest, uploadPantryImageRequest, uploadVoiceLogRequest, uploadReceiptRequest, uploadVoiceAudioRequest } from "../services/uploadApi";
 import type { UploadAnalysis, PantryAnalysis } from "../types";
 
 export type ScannedProduct = {
@@ -28,6 +28,7 @@ type UploadState = {
   addIngredientsToPantry: (ingredients: string[]) => void;
   deductIngredientsFromPantry: (ingredients: string[]) => void;
   uploadVoiceLog: (transcript: string) => Promise<boolean>;
+  uploadVoiceAudio: (audioBlob: Blob) => Promise<boolean>;
   addScannedProductToHistory: (barcode: string, name: string) => void;
   clearScannedHistory: () => void;
   uploadReceipt: (file: File | null) => Promise<string[] | null>;
@@ -318,6 +319,31 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
     try {
       const response = await uploadVoiceLogRequest(transcript.trim());
+      set({
+        analysis: response.data,
+        errorMessage: "",
+        progressMessage: "",
+        isUploading: false,
+      });
+      return true;
+    } catch (error) {
+      set({
+        errorMessage: getUploadErrorMessage(error),
+        progressMessage: "",
+        isUploading: false,
+      });
+      return false;
+    }
+  },
+  uploadVoiceAudio: async (audioBlob) => {
+    set({
+      errorMessage: "",
+      progressMessage: "Transcribing and analyzing audio...",
+      isUploading: true,
+    });
+
+    try {
+      const response = await uploadVoiceAudioRequest(audioBlob);
       set({
         analysis: response.data,
         errorMessage: "",

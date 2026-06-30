@@ -232,6 +232,7 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const setDragActive = useUploadStore((state) => state.setDragActive);
   const uploadImage = useUploadStore((state) => state.uploadImage);
   const uploadVoiceLog = useUploadStore((state) => state.uploadVoiceLog);
+  const uploadVoiceAudio = useUploadStore((state) => state.uploadVoiceAudio);
   const scanBarcode = useUploadStore((state) => state.scanBarcode);
   const progressMessage = useUploadStore((state) => state.progressMessage);
 
@@ -465,12 +466,21 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const [speechError, setSpeechError] = useState("");
 
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     return () => {
       cancelUpload();
       if (recognitionRef.current) {
         recognitionRef.current.stop();
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, [cancelUpload]);
@@ -543,66 +553,88 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
     return () => controller.abort();
   }, []);
 
-  const startRecording = () => {
+  const startRecording = async () => {
     clearError();
     setSpeechError("");
-    
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSpeechError("Speech recognition is not supported in this browser. Please use Chrome or Safari, or type your meal description manually.");
+    setVoiceTranscript("");
+    audioChunksRef.current = [];
+
+    // 1. Start Native MediaRecorder
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("getUserMedia is not supported in this browser.");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        // Upload audio for server-side transcription and analysis
+        const success = await uploadVoiceAudio(audioBlob);
+        if (success) {
+          setIsUploadModalOpen(false);
+          if (onUploadSuccess) onUploadSuccess();
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err: any) {
+      console.warn("Could not start native audio recording:", err);
+      setSpeechError("Could not access microphone. Please verify permissions or type your meal manually.");
       return;
     }
 
-    try {
-      const rec = new SpeechRecognition();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = "en-US";
+    // 2. Start Web Speech API as live visual transcription overlay if supported
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const rec = new SpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = "en-US";
 
-      rec.onstart = () => {
-        setIsRecording(true);
-      };
+        rec.onresult = (event: any) => {
+          const currentTranscript = Array.from(event.results)
+            .map((result: any) => result[0].transcript)
+            .join(" ");
+          setVoiceTranscript(currentTranscript);
+        };
 
-      rec.onresult = (event: any) => {
-        const currentTranscript = Array.from(event.results)
-          .map((result: any) => result[0].transcript)
-          .join(" ");
-        setVoiceTranscript(currentTranscript);
-      };
+        rec.onerror = (event: any) => {
+          // Ignore Web Speech API errors since we are recording natively
+          console.warn("Live speech preview error:", event.error);
+        };
 
-      rec.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        if (event.error === "not-allowed") {
-          setSpeechError("Microphone permission denied. Please allow microphone access in your browser settings or type your meal manually below.");
-        } else if (event.error === "network") {
-          setSpeechError("Speech recognition network error. In Chrome and Safari, voice-to-text requires a secure connection to cloud transcription servers. Please type your meal description directly in the input box below.");
-        } else {
-          setSpeechError(`Error during speech recognition: ${event.error}. Please type your meal manually below.`);
-        }
-        setIsRecording(false);
-        if (recognitionRef.current) {
-          recognitionRef.current.stop();
-        }
-      };
-
-      rec.onend = () => {
-        setIsRecording(false);
-      };
-
-      recognitionRef.current = rec;
-      rec.start();
-    } catch (err: any) {
-      console.error(err);
-      setSpeechError("Could not start speech recognition. Please type your meal manually.");
-      setIsRecording(false);
+        recognitionRef.current = rec;
+        rec.start();
+      } catch (err: any) {
+        console.warn("Live speech preview init failed:", err);
+      }
     }
   };
 
   const stopRecording = () => {
+    setIsRecording(false);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-    setIsRecording(false);
   };
 
   const toggleRecording = () => {

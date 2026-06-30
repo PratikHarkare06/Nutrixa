@@ -58,4 +58,36 @@ const uploadImage = (req, res, next) => {
   });
 };
 
-module.exports = { uploadImage };
+const allowedAudioMimeTypes = ["audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg", "audio/x-m4a", "audio/m4a", "video/webm"];
+
+const uploadAudio = multer({
+  storage,
+  limits: {
+    fileSize: 15 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, callback) => {
+    if (!allowedAudioMimeTypes.includes(file.mimetype) && !file.mimetype.startsWith("audio/") && !file.mimetype.startsWith("video/")) {
+      callback(createAppError(400, "INVALID_FILE_TYPE", `Unsupported audio format: ${file.mimetype}`));
+      return;
+    }
+    callback(null, true);
+  },
+});
+
+const uploadAudioMiddleware = (req, res, next) => {
+  uploadAudio.single("audio")(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      next(createAppError(400, "FILE_TOO_LARGE", "Audio file size exceeds 15MB limit."));
+      return;
+    }
+
+    next(createAppError(500, "UPLOAD_FAILED", `Audio upload failed: ${error.message}`));
+  });
+};
+
+module.exports = { uploadImage, uploadAudioMiddleware };

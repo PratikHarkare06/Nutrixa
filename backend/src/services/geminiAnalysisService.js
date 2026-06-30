@@ -474,6 +474,41 @@ Return ONLY a valid JSON array of these conflict objects. If there are no confli
   }
 };
 
+const transcribeAudioWithGemini = async (audioPath, mimeType) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  const ai = new GoogleGenAI({ apiKey });
+  const audioBuffer = fs.readFileSync(audioPath);
+  const base64Audio = audioBuffer.toString("base64");
+
+  const prompt = `You are a professional audio transcription assistant.
+Analyze this voice recording of a user describing what they ate.
+Transcribe the speech into clear, grammatical English text.
+Do not add any descriptions, notes, greeting, or explanations. Only return the exact transcription of the food items they described.
+If the audio is silent or contains no speech about food, return an empty string.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          inlineData: {
+            data: base64Audio,
+            mimeType: mimeType
+          }
+        },
+        prompt
+      ]
+    });
+
+    return response.text ? response.text.trim() : "";
+  } catch (error) {
+    console.error("Gemini Audio Transcription Error:", error);
+    throw new Error(`Failed to transcribe audio: ${error.message}`);
+  }
+};
+
 module.exports = { 
   analyzeFoodImageWithGemini, 
   getMealSuggestions, 
@@ -485,5 +520,6 @@ module.exports = {
   generateChatResponse,
   analyzeReceiptWithGemini,
   generateRecipesFromIngredients,
-  generateSubstitutesForAllergens
+  generateSubstitutesForAllergens,
+  transcribeAudioWithGemini
 };

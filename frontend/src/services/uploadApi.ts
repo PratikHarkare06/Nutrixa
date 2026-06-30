@@ -93,6 +93,17 @@ export const uploadVoiceLogRequest = async (transcript: string) => {
   return response.data;
 };
 
+export const uploadVoiceAudioRequest = async (audioBlob: Blob) => {
+  const formData = new FormData();
+  formData.append("audio", audioBlob, "voice-log.webm");
+  const response = await api.post<UploadSuccessResponse>("/upload/voice-audio", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 
