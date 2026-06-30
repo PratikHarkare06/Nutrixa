@@ -207,4 +207,22 @@ const searchAnuvaadDbCandidates = (query) => {
   }));
 };
 
-module.exports = { searchAnuvaadDb, searchAnuvaadDbCandidates, getAnuvaadItem };
+const searchAnuvaadAutocomplete = (query) => {
+  if (!anuvaadData || anuvaadData.length === 0) return [];
+  const cleanQ = query.trim().toLowerCase();
+  if (!cleanQ) return [];
+
+  return anuvaadData
+    .filter(item => item.food_name.toLowerCase().includes(cleanQ))
+    .slice(0, 10)
+    .map(item => ({
+      name: item.food_name,
+      calories: Math.round(item.energy_kcal || 0),
+      protein: Math.round(item.protein_g || 0),
+      carbs: Math.round(item.carb_g || 0),
+      fat: Math.round(item.fat_g || 0),
+      fiber: Math.round(item.fibre_g || 0)
+    }));
+};
+
+module.exports = { searchAnuvaadDb, searchAnuvaadDbCandidates, getAnuvaadItem, searchAnuvaadAutocomplete };

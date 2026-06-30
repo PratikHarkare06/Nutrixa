@@ -119,6 +119,11 @@ export const editMealIngredientsRequest = async (
   return response.data;
 };
 
+export const fetchAutocompleteRequest = async (q: string) => {
+  const response = await api.get<{ success: boolean; data: Array<{ name: string; calories: number }> }>("/upload/autocomplete", { params: { q } });
+  return response.data;
+};
+
 export const getUploadErrorMessage = (error: unknown): string => {
   const axiosError = error as AxiosError<ApiErrorResponse>;
 

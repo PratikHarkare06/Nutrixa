@@ -11,6 +11,7 @@ import {
 import { useUploadStore } from "../store/uploadStore";
 import { handleImageError } from "../utils/imageHelper";
 import { fetchProfileRequest, fetchAllergenSubstitutesRequest } from "../services/profileApi";
+import { fetchAutocompleteRequest } from "../services/uploadApi";
 
 type ResultsPageProps = {
   onBack: () => void;
@@ -195,6 +196,10 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
   const [scaleWeight, setScaleWeight] = useState("");
   const [isEditingIngredients, setIsEditingIngredients] = useState(false);
   const [editList, setEditList] = useState<Array<{ name: string; weight: number }>>([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<Array<{ name: string; calories: number }>>([]);
+  const [showXpModal, setShowXpModal] = useState(false);
+  const [xpModalProgress, setXpModalProgress] = useState(0);
 
   const [profile, setProfile] = useState<any>(null);
   const [allergenConflicts, setAllergenConflicts] = useState<any[]>([]);
@@ -302,6 +307,24 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
     setEditList(prev => prev.map((item, idx) => idx === index ? { ...item, name } : item));
   };
 
+  const handleNameChange = async (index: number, value: string) => {
+    handleUpdateName(index, value);
+    if (value.trim().length >= 2) {
+      setActiveSuggestionIndex(index);
+      try {
+        const res = await fetchAutocompleteRequest(value.trim());
+        if (res.success) {
+          setSuggestions(res.data || []);
+        }
+      } catch (err) {}
+    } else {
+      setSuggestions([]);
+      if (activeSuggestionIndex === index) {
+        setActiveSuggestionIndex(null);
+      }
+    }
+  };
+
   const handleAddIngredient = () => {
     setEditList(prev => [...prev, { name: "", weight: 100 }]);
   };
@@ -320,7 +343,13 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
 
   const handleSaveToLog = () => {
     setIsSaved(true);
-    alert("Saved successfully to log!");
+    setShowXpModal(true);
+    const currentXp = profile?.xp || 0;
+    const progressInLevel = (currentXp + 50) % 500;
+    const pct = Math.min(100, Math.max(10, (progressInLevel / 500) * 100));
+    setTimeout(() => {
+      setXpModalProgress(pct);
+    }, 150);
   };
 
   return (
@@ -1069,17 +1098,46 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                 </div>
               ) : (
                 editList.map((item, index) => (
-                  <div key={index} className="flex gap-2.5 items-center bg-[#F5F6F1]/50 border border-border/60 p-3.5 rounded-2xl">
-                    <div className="flex-1 flex flex-col gap-1.5">
+                  <div key={index} className="flex gap-2.5 items-center bg-[#F5F6F1]/50 border border-border/60 p-3.5 rounded-2xl relative">
+                    <div className="flex-1 flex flex-col gap-1.5 relative">
                       <label htmlFor={`ingredient-name-${index}`} className="sr-only">Ingredient Name</label>
                       <input
                         id={`ingredient-name-${index}`}
                         type="text"
                         value={item.name}
-                        onChange={(e) => handleUpdateName(index, e.target.value)}
+                        onChange={(e) => handleNameChange(index, e.target.value)}
+                        onFocus={() => {
+                          if (item.name.trim().length >= 2) {
+                            handleNameChange(index, item.name);
+                          }
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setActiveSuggestionIndex(null);
+                          }, 250);
+                        }}
                         placeholder="e.g. Chicken breast"
                         className="bg-white border border-[#E2E4DC] focus:border-[#7A9E7E] rounded-xl px-3 py-2 text-xs font-semibold text-textHeading outline-none transition-all shadow-sm w-full capitalize"
                       />
+
+                      {activeSuggestionIndex === index && suggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-lg z-50 max-h-40 overflow-y-auto divide-y divide-border">
+                          {suggestions.map((s, sIdx) => (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => {
+                                handleUpdateName(index, s.name);
+                                setSuggestions([]);
+                                setActiveSuggestionIndex(null);
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs font-medium text-textHeading hover:bg-[#F5F6F1] transition-all capitalize"
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="w-24 flex items-center gap-1.5 bg-white border border-[#E2E4DC] rounded-xl px-2.5 py-2 shadow-sm">
                       <label htmlFor={`ingredient-weight-${index}`} className="sr-only">Portion Weight</label>
@@ -1131,6 +1189,45 @@ export const ResultsPage = ({ onBack, onNavigate }: ResultsPageProps) => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showXpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white border border-border w-full max-w-sm rounded-[32px] p-6 shadow-2xl flex flex-col items-center text-center gap-6 animate-[scaleIn_0.3s_ease-out]">
+            <div className="w-20 h-20 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] flex items-center justify-center relative overflow-hidden">
+              <span className="text-4xl animate-bounce">⚡</span>
+              <span className="absolute inset-0 rounded-full border-2 border-[#7A9E7E] animate-ping opacity-25"></span>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black text-textHeading">+50 XP Earned!</h3>
+              <p className="text-sm font-semibold text-[#7A9E7E]">{profile?.fullName?.split(" ")[0] || "User"} Logged Meal</p>
+              <p className="text-xs text-textMuted leading-relaxed">
+                Your meal has been recorded. You are getting closer to your weekly health goals!
+              </p>
+            </div>
+
+            <div className="w-full space-y-2">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase text-textMuted tracking-wider">
+                <span>Level {profile?.level || 1}</span>
+                <span>{((profile?.xp || 0) % 500) + 50} / 500 XP</span>
+              </div>
+              <div className="w-full bg-[#F5F5F0] h-3.5 rounded-full overflow-hidden border border-[#E2E4DC] p-0.5 shadow-inner">
+                <div 
+                  className="bg-[#7A9E7E] h-full rounded-full transition-all duration-1000 ease-out" 
+                  style={{ width: `${xpModalProgress}%` }}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowXpModal(false)}
+              className="w-full py-3.5 bg-[#7A9E7E] hover:bg-[#68876c] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
+            >
+              🎉 Keep It Up!
+            </button>
           </div>
         </div>
       )}

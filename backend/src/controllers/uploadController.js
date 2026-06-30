@@ -478,6 +478,21 @@ const editMealIngredients = async (req, res, next) => {
   }
 };
 
+const getFoodAutocomplete = async (req, res, next) => {
+  const query = (req.query.q || "").trim();
+  if (!query) {
+    return res.status(200).json({ success: true, data: [] });
+  }
+
+  try {
+    const { searchAnuvaadAutocomplete } = require("../utils/anuvaadSearch");
+    const results = searchAnuvaadAutocomplete(query);
+    res.status(200).json({ success: true, data: results });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = { 
   uploadImage, 
   correctIngredient, 
@@ -485,5 +500,6 @@ module.exports = {
   analyzePantryImage,
   analyzeReceiptImage,
   calibrateMealWeight,
-  editMealIngredients
+  editMealIngredients,
+  getFoodAutocomplete
 };
