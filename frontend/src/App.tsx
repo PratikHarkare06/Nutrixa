@@ -64,7 +64,7 @@ function App() {
   };
 
   // ── Route Guards ──
-  const isGuestAllowedPath = pathname === "/" || pathname === "/results" || pathname === "/auth";
+  const isGuestAllowedPath = pathname === "/auth";
 
   // Redirect to Auth if trying to access gated feature as a guest
   useEffect(() => {
