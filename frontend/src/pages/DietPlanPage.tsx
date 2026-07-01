@@ -3,6 +3,7 @@ import { fetchProfileRequest, generateDietPlanRequest, generateGroceryListReques
 import type { UserProfile, DailyDietPlan } from "../types";
 import { SparklesIcon, CalendarIcon, BoltIcon, FireIcon, ProteinIcon } from "../components/icons";
 import { GroceryListModal } from "../components/GroceryListModal";
+import { getMealFallbackImage } from "../utils/imageHelper";
 
 export const DietPlanPage = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -208,13 +209,7 @@ export const DietPlanPage = () => {
 
   // Predefined list of mock meal images to show
   const getMealImage = (mealType: string) => {
-    if (mealType.toLowerCase().includes("breakfast") || mealType.toLowerCase().includes("toast")) {
-      return "https://images.unsplash.com/photo-1541532713592-79a0317b6b77?w=600&auto=format&fit=crop&q=80";
-    }
-    if (mealType.toLowerCase().includes("lunch") || mealType.toLowerCase().includes("quinoa")) {
-      return "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80";
-    }
-    return "https://images.unsplash.com/photo-1485921325814-a5dad423a3b6?w=600&auto=format&fit=crop&q=80"; // Salmon
+    return getMealFallbackImage(mealType);
   };
 
   const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

@@ -3,6 +3,7 @@ import { SparklesIcon, CameraIcon, CloseIcon } from "../components/icons";
 import { useUploadStore } from "../store/uploadStore";
 import { generateZeroWasteRecipeRequest, scanBarcodeRequest } from "../services/uploadApi";
 import { BarcodeScanner } from "../components/BarcodeScanner";
+import { getMealFallbackImage } from "../utils/imageHelper";
 
 // Mock data to match mockup screenshot
 const mockPantryItems = [
@@ -1225,13 +1226,7 @@ export const PantryPage = ({ onNavigate }: PantryPageProps) => {
 
 // Helper function to resolve meal image
 const getMealImage = (name: string) => {
-  if (name.toLowerCase().includes("salad") || name.toLowerCase().includes("quinoa")) {
-    return "https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&auto=format&fit=crop&q=80";
-  }
-  if (name.toLowerCase().includes("smoothie") || name.toLowerCase().includes("shake")) {
-    return "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&auto=format&fit=crop&q=80";
-  }
-  return "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&auto=format&fit=crop&q=80";
+  return getMealFallbackImage(name);
 };
 
 // Helper function to resolve ingredient category

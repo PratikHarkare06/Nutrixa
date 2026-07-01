@@ -152,7 +152,23 @@ Do not return any markdown formatting outside of the JSON.`;
   try {
     const textOutput = await callNvidiaNim(recipePrompt);
     const parsedRecipes = extractJsonFromText(textOutput);
-    return parsedRecipes.recipes || [];
+    const recipes = parsedRecipes.recipes || [];
+
+    const { generateFoodImage } = require("./imageGenerationService");
+    const { getMealFallbackImage } = require("../utils/imageHelper");
+
+    await Promise.all(
+      recipes.map(async (recipe) => {
+        let imgUrl = await generateFoodImage(recipe.name);
+        if (!imgUrl) {
+          imgUrl = getMealFallbackImage(recipe.name);
+        }
+        recipe.img = imgUrl;
+        recipe.image = imgUrl;
+      })
+    );
+
+    return recipes;
   } catch (error) {
     console.error("Nvidia Pantry Recipe Generation Error:", error);
     return [
@@ -302,7 +318,19 @@ Do not return any markdown formatting or any other text outside the JSON.`;
 
   try {
     const textOutput = await callNvidiaNim(prompt);
-    return extractJsonFromText(textOutput);
+    const recipe = extractJsonFromText(textOutput);
+
+    const { generateFoodImage } = require("./imageGenerationService");
+    const { getMealFallbackImage } = require("../utils/imageHelper");
+
+    let imgUrl = await generateFoodImage(recipe.name);
+    if (!imgUrl) {
+      imgUrl = getMealFallbackImage(recipe.name);
+    }
+    recipe.img = imgUrl;
+    recipe.image = imgUrl;
+
+    return recipe;
   } catch (error) {
     console.error("Nvidia Zero Waste Recipe Error:", error);
     throw new Error("Failed to generate zero waste recipe.");

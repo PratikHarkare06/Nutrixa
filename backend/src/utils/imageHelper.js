@@ -1,6 +1,4 @@
-import React from "react";
-
-export const getMealFallbackImage = (name: string): string => {
+const getMealFallbackImage = (name) => {
   const lower = name ? name.toLowerCase() : "";
   if (lower.includes("pizza")) {
     return "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&auto=format&fit=crop&q=80";
@@ -53,10 +51,4 @@ export const getMealFallbackImage = (name: string): string => {
   return "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&auto=format&fit=crop&q=80";
 };
 
-export const handleImageError = (
-  e: React.SyntheticEvent<HTMLImageElement, Event>,
-  foodName: string
-) => {
-  e.currentTarget.onerror = null; // Prevent infinite fallback loops if the fallback itself fails
-  e.currentTarget.src = getMealFallbackImage(foodName);
-};
+module.exports = { getMealFallbackImage };
