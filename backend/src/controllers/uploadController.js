@@ -152,8 +152,8 @@ const correctIngredient = async (req, res, next) => {
     entry.foods[foodIndex].confidence = 1.0; // User confirmed, so 100% confidence
     
     // Replace the macro map key
-    entry.ingredients_macros.delete(oldKey);
-    entry.ingredients_macros.set(nutriments.name.toLowerCase(), {
+    const newKey = nutriments.name.toLowerCase();
+    const newMacroObj = {
       calories: nutriments.calories,
       protein: nutriments.protein,
       carbs: nutriments.carbs,
@@ -167,7 +167,20 @@ const correctIngredient = async (req, res, next) => {
       portionCarbs: Math.round(newPortionCarbs),
       portionFat: Math.round(newPortionFat),
       portionFiber: Math.round(newPortionFiber)
-    });
+    };
+
+    if (entry.ingredients_macros) {
+      if (typeof entry.ingredients_macros.delete === "function") {
+        entry.ingredients_macros.delete(oldKey);
+        entry.ingredients_macros.set(newKey, newMacroObj);
+      } else {
+        delete entry.ingredients_macros[oldKey];
+        entry.ingredients_macros[newKey] = newMacroObj;
+        entry.markModified("ingredients_macros");
+      }
+    } else {
+      entry.set("ingredients_macros", new Map([[newKey, newMacroObj]]));
+    }
 
     // 9. Save to Database
     await entry.save();
@@ -481,7 +494,14 @@ const editMealIngredients = async (req, res, next) => {
       entry.carbs = Math.round(totalCarbs);
       entry.fat = Math.round(totalFat);
       entry.fiber = Math.round(totalFiber);
-      entry.ingredients_macros = newIngredientsMacros;
+      if (entry.ingredients_macros && typeof entry.ingredients_macros.clear === "function") {
+        entry.ingredients_macros.clear();
+        for (const [key, value] of newIngredientsMacros) {
+          entry.ingredients_macros.set(key, value);
+        }
+      } else {
+        entry.set("ingredients_macros", newIngredientsMacros);
+      }
 
       await entry.save();
 

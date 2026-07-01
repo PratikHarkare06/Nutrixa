@@ -3,6 +3,8 @@ const errorHandler = (error, _req, res, _next) => {
   const code = error.code || "SERVER_ERROR";
   const message = error.message || "An unexpected error occurred.";
 
+  console.error("💥 Backend Error:", error);
+
   res.status(status).json({
     success: false,
     error: {
