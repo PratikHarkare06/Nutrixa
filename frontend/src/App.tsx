@@ -4,6 +4,7 @@ import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { ChatAssistant } from "./components/ChatAssistant";
 import { ToastProvider } from "./components/Toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { startNotificationLoop, stopNotificationLoop } from "./utils/notificationManager";
 
 // Authentication & Onboarding
 import { useAuthStore } from "./store/authStore";
@@ -38,6 +39,13 @@ function App() {
 
   useEffect(() => {
     initAuth();
+  }, []);
+
+  useEffect(() => {
+    startNotificationLoop();
+    return () => {
+      stopNotificationLoop();
+    };
   }, []);
 
   useEffect(() => {

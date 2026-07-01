@@ -8,6 +8,7 @@ import { BarcodeScanner } from "../components/BarcodeScanner";
 import { fetchHistoryRequest, addWaterRequest, logCustomMealRequest } from "../services/historyApi";
 import { fetchDashboardStatsRequest, updateWorkoutIntensityRequest, fetchProfileRequest, fetchProgressLogsRequest, fetchSleepLogsRequest } from "../services/profileApi";
 import { fetchWorkoutLogsRequest } from "../services/workoutApi";
+import { checkNotificationPermission, requestNotificationPermission } from "../utils/notificationManager";
 
 type DashboardPageProps = {
   onUploadSuccess: () => void;
@@ -235,6 +236,11 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
   const uploadVoiceAudio = useUploadStore((state) => state.uploadVoiceAudio);
   const scanBarcode = useUploadStore((state) => state.scanBarcode);
   const progressMessage = useUploadStore((state) => state.progressMessage);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(checkNotificationPermission());
+
+  useEffect(() => {
+    setNotifPermission(checkNotificationPermission());
+  }, []);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadDishName, setUploadDishName] = useState("");
@@ -779,6 +785,30 @@ export const DashboardPage = ({ onUploadSuccess, onNavigate }: DashboardPageProp
             </svg>
             {notifications.length > 0 && (
               <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500" />
+            )}
+          </button>
+          <button 
+            type="button"
+            onClick={async () => {
+              if (notifPermission !== "granted") {
+                const granted = await requestNotificationPermission();
+                setNotifPermission(granted ? "granted" : "denied");
+              } else {
+                onNavigate?.("/profile");
+              }
+            }}
+            className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-300 shadow-sm relative shrink-0 ${
+              notifPermission === "granted" 
+                ? "bg-[#EBF2EB] border-[#D4E6D5] text-[#7A9E7E] hover:bg-[#D4E6D5]" 
+                : "bg-[#FFF9E6] border-[#FFEBB3] text-[#D4A847] hover:bg-[#FFEBB3] animate-pulse"
+            }`}
+            title={notifPermission === "granted" ? "Web Notifications Active (Click to manage)" : "Enable Web Notifications for reminders"}
+          >
+            <span className="text-sm">{notifPermission === "granted" ? "🔔" : "🔕"}</span>
+            {notifPermission !== "granted" && (
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-black text-white">
+                !
+              </span>
             )}
           </button>
           <div 

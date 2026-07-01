@@ -15,6 +15,13 @@ import {
 import type { UserProfile } from "../types";
 import { ProgressTracker } from "../components/ProgressTracker";
 import { BadgesShowcase } from "../components/BadgesShowcase";
+import {
+  getNotificationSettings,
+  saveNotificationSettings,
+  requestNotificationPermission,
+  sendTestNotification,
+  NotificationSettings
+} from "../utils/notificationManager";
 
 type ProfilePageProps = {
   onNavigate: (nextPath: string) => void;
@@ -116,6 +123,21 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   // Profile preferences (mock & DB synced)
   const dietaryRestrictions = watch("dietaryRestrictions") || [];
   const [nutAllergyWarning, setNutAllergyWarning] = useState(true);
+
+  // Notification Reminders state
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
+
+  const handleToggleNotifications = async (val: boolean) => {
+    if (val) {
+      const granted = await requestNotificationPermission();
+      const updated = getNotificationSettings();
+      setNotifSettings({ ...updated, enabled: granted });
+    } else {
+      const updated = { ...notifSettings, enabled: false };
+      setNotifSettings(updated);
+      saveNotificationSettings(updated);
+    }
+  };
 
   // Targets values
   const calTarget = watch("nutritionalTargets.calories") || 2100;
@@ -507,7 +529,233 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
                 </div>
               </div>
             </section>
-          </div>
+
+              {/* Notification Reminders Card */}
+              <section className="bg-white rounded-[24px] border border-border p-6 shadow-sm">
+                <h2 className="text-lg font-bold text-textHeading mb-2 flex items-center gap-2">
+                  <span>🔔</span> Notification Reminders
+                </h2>
+                <p className="text-xs text-textMuted leading-relaxed mb-6">
+                  Stay consistent with your nutrition goals. Configure local system alerts for hydration and meals.
+                </p>
+
+                <div className="space-y-6">
+                  {/* 1. Global Enable */}
+                  <div className="flex justify-between items-center bg-[#F8F9FA] p-4 rounded-2xl border border-[#E9ECEF]">
+                    <div>
+                      <h4 className="font-bold text-textHeading text-sm">Enable Web Notifications</h4>
+                      <p className="text-[11px] text-textMuted mt-0.5">Receive reminders in your browser / OS notification center</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={notifSettings.enabled} 
+                        onChange={(e) => handleToggleNotifications(e.target.checked)}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-[#E2E4DC] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7A9E7E]"></div>
+                    </label>
+                  </div>
+
+                  {notifSettings.enabled && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Test Button */}
+                      <div className="flex justify-between items-center bg-[#EBF2EB]/40 border border-[#7A9E7E]/30 p-3 rounded-2xl">
+                        <span className="text-xs font-semibold text-[#5C7A60]">Verify configuration</span>
+                        <button
+                          type="button"
+                          onClick={sendTestNotification}
+                          className="px-3.5 py-1.5 bg-[#7A9E7E] hover:bg-[#5C7A60] text-white rounded-xl text-xs font-bold transition-all shadow-sm shrink-0"
+                        >
+                          Send Test Notification
+                        </button>
+                      </div>
+
+                      {/* 2. Water Reminders */}
+                      <div className="border border-border rounded-2xl p-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="font-bold text-textHeading text-sm">Water Reminders</h4>
+                            <p className="text-[11px] text-textMuted mt-0.5">Remind me to log water intake</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={notifSettings.waterEnabled} 
+                              onChange={(e) => {
+                                const updated = { ...notifSettings, waterEnabled: e.target.checked };
+                                setNotifSettings(updated);
+                                saveNotificationSettings(updated);
+                              }}
+                              className="sr-only peer" 
+                            />
+                            <div className="w-11 h-6 bg-[#E2E4DC] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7A9E7E]"></div>
+                          </label>
+                        </div>
+
+                        {notifSettings.waterEnabled && (
+                          <div className="flex items-center gap-3 bg-[#F5F6F1]/50 p-2.5 rounded-xl text-xs font-medium">
+                            <span className="text-textMuted shrink-0">Reminder Frequency:</span>
+                            <select
+                              value={notifSettings.waterFrequencyHours}
+                              onChange={(e) => {
+                                const updated = { ...notifSettings, waterFrequencyHours: Number(e.target.value) };
+                                setNotifSettings(updated);
+                                saveNotificationSettings(updated);
+                              }}
+                              className="bg-white border border-border rounded-lg px-2.5 py-1 text-xs font-bold text-textHeading focus:outline-none focus:ring-1 focus:ring-[#7A9E7E]"
+                            >
+                              <option value={1}>Every 1 Hour</option>
+                              <option value={2}>Every 2 Hours</option>
+                              <option value={3}>Every 3 Hours</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. Meal Reminders */}
+                      <div className="border border-border rounded-2xl p-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="font-bold text-textHeading text-sm">Meal Reminders</h4>
+                            <p className="text-[11px] text-textMuted mt-0.5">Alert me at meal times</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={notifSettings.mealsEnabled} 
+                              onChange={(e) => {
+                                const updated = { ...notifSettings, mealsEnabled: e.target.checked };
+                                setNotifSettings(updated);
+                                saveNotificationSettings(updated);
+                              }}
+                              className="sr-only peer" 
+                            />
+                            <div className="w-11 h-6 bg-[#E2E4DC] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7A9E7E]"></div>
+                          </label>
+                        </div>
+
+                        {notifSettings.mealsEnabled && (
+                          <div className="space-y-3.5 bg-[#F5F6F1]/30 p-3 rounded-xl">
+                            {/* Breakfast */}
+                            <div className="flex items-center justify-between gap-4">
+                              <label className="flex items-center gap-2 text-xs font-bold text-textHeading cursor-pointer">
+                                <input 
+                                  type="checkbox"
+                                  checked={notifSettings.breakfastEnabled}
+                                  onChange={(e) => {
+                                    const updated = { ...notifSettings, breakfastEnabled: e.target.checked };
+                                    setNotifSettings(updated);
+                                    saveNotificationSettings(updated);
+                                  }}
+                                  className="rounded text-[#7A9E7E] focus:ring-[#7A9E7E] w-4 h-4"
+                                />
+                                🍳 Breakfast
+                              </label>
+                              <input 
+                                type="time"
+                                value={notifSettings.breakfastTime}
+                                onChange={(e) => {
+                                  const updated = { ...notifSettings, breakfastTime: e.target.value };
+                                  setNotifSettings(updated);
+                                  saveNotificationSettings(updated);
+                                }}
+                                disabled={!notifSettings.breakfastEnabled}
+                                className="bg-white border border-border rounded-lg px-2.5 py-1 text-xs font-bold text-textHeading focus:outline-none focus:ring-1 focus:ring-[#7A9E7E] disabled:opacity-55"
+                              />
+                            </div>
+
+                            {/* Lunch */}
+                            <div className="flex items-center justify-between gap-4">
+                              <label className="flex items-center gap-2 text-xs font-bold text-textHeading cursor-pointer">
+                                <input 
+                                  type="checkbox"
+                                  checked={notifSettings.lunchEnabled}
+                                  onChange={(e) => {
+                                    const updated = { ...notifSettings, lunchEnabled: e.target.checked };
+                                    setNotifSettings(updated);
+                                    saveNotificationSettings(updated);
+                                  }}
+                                  className="rounded text-[#7A9E7E] focus:ring-[#7A9E7E] w-4 h-4"
+                                />
+                                🥗 Lunch
+                              </label>
+                              <input 
+                                type="time"
+                                value={notifSettings.lunchTime}
+                                onChange={(e) => {
+                                  const updated = { ...notifSettings, lunchTime: e.target.value };
+                                  setNotifSettings(updated);
+                                  saveNotificationSettings(updated);
+                                }}
+                                disabled={!notifSettings.lunchEnabled}
+                                className="bg-white border border-border rounded-lg px-2.5 py-1 text-xs font-bold text-textHeading focus:outline-none focus:ring-1 focus:ring-[#7A9E7E] disabled:opacity-55"
+                              />
+                            </div>
+
+                            {/* Snack */}
+                            <div className="flex items-center justify-between gap-4">
+                              <label className="flex items-center gap-2 text-xs font-bold text-textHeading cursor-pointer">
+                                <input 
+                                  type="checkbox"
+                                  checked={notifSettings.snackEnabled}
+                                  onChange={(e) => {
+                                    const updated = { ...notifSettings, snackEnabled: e.target.checked };
+                                    setNotifSettings(updated);
+                                    saveNotificationSettings(updated);
+                                  }}
+                                  className="rounded text-[#7A9E7E] focus:ring-[#7A9E7E] w-4 h-4"
+                                />
+                                🥜 Afternoon Snack
+                              </label>
+                              <input 
+                                type="time"
+                                value={notifSettings.snackTime}
+                                onChange={(e) => {
+                                  const updated = { ...notifSettings, snackTime: e.target.value };
+                                  setNotifSettings(updated);
+                                  saveNotificationSettings(updated);
+                                }}
+                                disabled={!notifSettings.snackEnabled}
+                                className="bg-white border border-border rounded-lg px-2.5 py-1 text-xs font-bold text-textHeading focus:outline-none focus:ring-1 focus:ring-[#7A9E7E] disabled:opacity-55"
+                              />
+                            </div>
+
+                            {/* Dinner */}
+                            <div className="flex items-center justify-between gap-4">
+                              <label className="flex items-center gap-2 text-xs font-bold text-textHeading cursor-pointer">
+                                <input 
+                                  type="checkbox"
+                                  checked={notifSettings.dinnerEnabled}
+                                  onChange={(e) => {
+                                    const updated = { ...notifSettings, dinnerEnabled: e.target.checked };
+                                    setNotifSettings(updated);
+                                    saveNotificationSettings(updated);
+                                  }}
+                                  className="rounded text-[#7A9E7E] focus:ring-[#7A9E7E] w-4 h-4"
+                                />
+                                🍽️ Dinner
+                              </label>
+                              <input 
+                                type="time"
+                                value={notifSettings.dinnerTime}
+                                onChange={(e) => {
+                                  const updated = { ...notifSettings, dinnerTime: e.target.value };
+                                  setNotifSettings(updated);
+                                  saveNotificationSettings(updated);
+                                }}
+                                disabled={!notifSettings.dinnerEnabled}
+                                className="bg-white border border-border rounded-lg px-2.5 py-1 text-xs font-bold text-textHeading focus:outline-none focus:ring-1 focus:ring-[#7A9E7E] disabled:opacity-55"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
 
           {/* Right Column: Daily Targets */}
           <div className="space-y-8">
