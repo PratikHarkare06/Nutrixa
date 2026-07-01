@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useAuthStore } from "../store/authStore";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -138,6 +139,9 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
       saveNotificationSettings(updated);
     }
   };
+
+  const user = useAuthStore((state) => state.user);
+  const watchFullName = watch("fullName") || "User";
 
   // Targets values
   const calTarget = watch("nutritionalTargets.calories") || 2100;
@@ -279,7 +283,16 @@ export const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
           )}
 
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm cursor-pointer hover:bg-[#D4E6D5] transition-colors">
-            AR
+            {(() => {
+              const nameToUse = watchFullName || user?.name || "User";
+              return nameToUse
+                .split(" ")
+                .filter(Boolean)
+                .map((n: string) => n[0])
+                .join("")
+                .substring(0, 2)
+                .toUpperCase();
+            })()}
           </div>
         </div>
       </header>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchProfileRequest } from "../services/profileApi";
 import { fetchWorkoutPlanRequest, generateWorkoutPlanRequest, completeWorkoutSessionRequest } from "../services/workoutApi";
 import type { UserProfile, DailyWorkoutPlan } from "../types";
+import { useAuthStore } from "../store/authStore";
 import { SparklesIcon, BoltIcon, FireIcon } from "../components/icons";
 import {
   BarChart,
@@ -82,6 +83,7 @@ type WorkoutPageProps = {
 
 export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const user = useAuthStore((state) => state.user);
   const [workoutPlan, setWorkoutPlan] = useState<DailyWorkoutPlan[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -475,7 +477,16 @@ export const WorkoutPage = ({ onNavigate }: WorkoutPageProps) => {
             onClick={() => onNavigate?.("/profile")}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm cursor-pointer hover:bg-[#D4E6D5] transition-colors"
           >
-            AR
+            {(() => {
+              const nameToUse = profile?.fullName || user?.name || "User";
+              return nameToUse
+                .split(" ")
+                .filter(Boolean)
+                .map((n: string) => n[0])
+                .join("")
+                .substring(0, 2)
+                .toUpperCase();
+            })()}
           </div>
 
           {/* Notifications Dropdown */}
