@@ -1,96 +1,115 @@
-# NutriVision AI 🍏✨
+# Nutrixa AI 🍏✨
 
-NutriVision is an intelligent, Gamified Health & Nutrition platform powered by Google's Gemini AI. It goes beyond simple calorie counting by acting as your personal AI nutritionist, personal trainer, and culinary assistant—all wrapped in a beautifully designed, installable Progressive Web App (PWA).
-
-## 🚀 Features
-
-- **📸 AI Food Recognition:** Snap a photo of your meal. Our AI (powered by Gemini & FatSecret) instantly recognizes the food, calculates the exact macronutrients, and logs it to your daily dashboard.
-- **📅 Smart Diet Planner:** Generates a highly personalized, day-by-day, 7-day meal plan tailored perfectly to your weight, height, age, activity level, and dietary restrictions (e.g., Vegan, Gluten-Free).
-- **🛒 Grocery List Generator:** Automatically extracts all necessary ingredients from your active 7-Day Diet Plan and categorizes them by supermarket aisles (Produce, Meat, Dairy, etc.) into an interactive, exportable shopping list.
-- **🏋️‍♂️ AI Workout Planner:** An AI Personal Trainer that crafts a bespoke 7-day fitness routine aligned with your primary goal (Weight Loss, Muscle Gain), complete with exact exercises, sets, reps, and rest times.
-- **👨‍🍳 Pantry AI Chef:** Don't know what to cook? Take a picture of your open fridge or pantry. The AI will identify your available ingredients and suggest 3 healthy, macro-friendly recipes you can make right now.
-- **💧 Hydration Tracker:** An interactive daily water intake widget to keep you hydrated.
-- **📉 Body Transformation Tracker:** Log your weight and upload progress photos. Watch your body transform over time on a dynamic line chart mapped against your nutritional adherence.
-- **🏆 Gamification & RPG Leveling:** Earn XP by logging meals, drinking water, and hitting your daily goals. Level up and unlock exclusive golden badges (e.g., *Hydration Hero*, *First Meal Logged*) displayed proudly on your Dashboard.
-- **📱 PWA Ready:** Install NutriVision directly to your iOS or Android home screen for a seamless, lightning-fast native app experience with offline caching.
+Nutrixa is an intelligent, gamified Health, Nutrition, & Sleep ecosystem. It functions as a complete self-care suite, acting as a personal nutritionist, fitness coach, sleep cycle analyst, and interactive culinary assistant in a single Progressive Web App (PWA).
 
 ---
 
-## 🛠️ Tech Stack
+## 🌟 Core Features
 
-### Frontend (Client)
-- **Framework:** React 18 with TypeScript
-- **Build Tool:** Vite
-- **Styling:** Tailwind CSS
-- **State Management:** Zustand
-- **Data Visualization:** Recharts
-- **PWA:** vite-plugin-pwa
+### 1. Multimodal AI Analysis & Scanning
+* **Photo Food Scanner**: Analyzes meal images to estimate portions, weights, and detailed macronutrients, mapped directly to Indian and global food items.
+* **Barcode Scanner**: Scans packaged product UPC barcodes to instantly identify items and pull verified nutritional statistics.
+* **Receipt Scanner**: Extracts grocery listings using OCR to automatically update the user's pantry inventory.
+* **Pantry / Fridge Stock Scanner**: Captures images of kitchen shelves and records available ingredients.
+* **ChefVoice Assistant**: Hands-free voice commands to navigate ingredients, instructions, and timers while cooking.
 
-### Backend (Server)
-- **Runtime:** Node.js
-- **Framework:** Express.js
-- **Database:** MongoDB (Mongoose)
-- **AI Integrations:** Google GenAI SDK (Gemini 2.5 Flash), FatSecret API
-- **File Uploads:** Multer
+### 2. Intelligent Planners
+* **7-Day Custom Diet Planner**: Generates day-by-day diet programs tailored to target weight, daily activity levels, age, and dietary preferences (e.g., High Protein, Vegan, Gluten-Free). Includes an **AI Swapper Modal** to swap individual meals.
+* **Aisle-Categorized Grocery List**: Automatically parses active diet plans to compile consolidated shopping lists grouped by supermarket departments.
+* **AI Workout Coach**: Simulated Apple Health data synchronization to design customized fitness regimes, dynamic workouts, and rest schedules based on user targets.
+* **Circadian Sleep Cycle Assistant**: Visualizes sleep quality indicators, tracks deep/light/REM sleep stages, and provides behavioral suggestions.
+
+### 3. Gamified Dashboard & Reminders
+* **XP Progression & Levels**: Users gain experience points (XP) for logged water intake, meals, and completed workouts.
+* **Daily Logging Streak System**: Tracks continuous logging streaks with progress badges like *Hydration Hero* or *Calorie Champion*.
+* **Streak Celebration Animations**: Visual feedback celebrations (pulsing green rings, energetic particles) upon logging.
+* **Web Notification Reminders**: Native browser scheduling for logging meals (Breakfast, Lunch, Dinner, Snack) and drinking water at configurable intervals.
 
 ---
 
-## 💻 Running Locally
+## 📂 Project Directory Structure
 
-### Prerequisites
-- Node.js (v18+)
-- MongoDB running locally or a MongoDB Atlas URI
-- API Keys for Google Gemini and FatSecret
+```
+Nutrixa/
+├── frontend/                     # Client application (React + TypeScript)
+│   ├── src/
+│   │   ├── components/           # Reusable UI elements (Charts, Uploaders, Sidebars)
+│   │   ├── pages/                # Application Views (Dashboard, Workout, Sleep, Profile)
+│   │   ├── services/             # Client API wrappers
+│   │   ├── store/                # Zustand global states (Auth, Uploads)
+│   │   ├── utils/                # Helper functions (Notifications, Image loaders)
+│   │   ├── App.tsx               # Main routing & layout controller
+│   │   └── main.tsx              # React mounting root
+│   ├── vite.config.ts            # Vite bundler & PWA plugin configurations
+│   └── tsconfig.json             # TypeScript rules
+│
+├── backend/                      # Server application (Node.js + Express)
+│   ├── src/
+│   │   ├── controllers/          # Endpoint controllers (History, Workout, Profile)
+│   │   ├── models/               # MongoDB Mongoose schemas
+│   │   ├── routes/               # API endpoint routers
+│   │   ├── services/             # Core service workers (AI recipe, Sleep analyzer)
+│   │   ├── utils/                # Server utilities (Indian food mappings, fallbacks)
+│   │   └── index.js              # Express listener start script
+│   └── package.json              # Server dependencies
+```
 
-### 1. Clone the repository
-\`\`\`bash
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Frontend Core** | React 18 & TypeScript | Build system matching high-fidelity interfaces |
+| **Styling** | Tailwind CSS | Modern layout rendering with Glassmorphic utilities |
+| **Client State** | Zustand | Light state management for auth triggers & local caches |
+| **Data Viz** | Recharts | Interactive sleep stage matrices & macro pie charts |
+| **Service Workers** | Vite PWA Plugin | Pre-caches resources for installing app to homescreen |
+| **Backend Core** | Node.js & Express | Server architecture |
+| **Database** | MongoDB & Mongoose | Document modeling for user profile histories |
+| **File Storage** | Multer | local disk storage handling for scanned documents |
+
+---
+
+## 💻 Local Setup & Deployment
+
+### 1. Clone Project
+```bash
 git clone https://github.com/PratikHarkare06/Nutri-Vision.git
 cd Nutri-Vision
-\`\`\`
+```
 
 ### 2. Backend Setup
-\`\`\`bash
+Navigate into the server workspace directory, install dependencies, and run:
+```bash
 cd backend
 npm install
-\`\`\`
-Create a \`.env\` file in the `backend` directory:
-\`\`\`env
-PORT=5001
-MONGODB_URI=mongodb://localhost:27017/nutrivision
-GEMINI_API_KEY=your_gemini_api_key_here
-FATSECRET_CLIENT_ID=your_fatsecret_client_id_here
-FATSECRET_CLIENT_SECRET=your_fatsecret_client_secret_here
-APP_URL=http://localhost:5001
-\`\`\`
-Start the backend server:
-\`\`\`bash
 npm run dev
-\`\`\`
+```
 
 ### 3. Frontend Setup
-Open a new terminal window:
-\`\`\`bash
+Open a new terminal window to build the user client application:
+```bash
 cd frontend
 npm install
-\`\`\`
-Start the Vite development server:
-\`\`\`bash
 npm run dev
-\`\`\`
-
-Open your browser to `http://localhost:5173` and start tracking!
-
----
-
-## 📱 Installing as a Mobile App
-Because NutriVision is a Progressive Web App (PWA):
-- **iOS (Safari):** Tap the Share button, then scroll down and tap "Add to Home Screen".
-- **Android (Chrome):** Tap the 3-dot menu and select "Install app" or "Add to Home screen".
+```
+Navigate your browser to `http://localhost:5173`.
 
 ---
 
-## 🤝 Contributing
-Contributions, issues, and feature requests are welcome! Feel free to check the issues page.
+## 🗄️ Database Schemas & Storage Design
 
-## 📝 License
-This project is licensed under the MIT License.
+* **User Profile**: Houses age, weight, height, goal preferences, dietary settings, accumulated XP, leveling attributes, unlocked achievements, and daily water goals.
+* **Nutrition History Logs**: Records custom meal inputs, photo-logged items, estimated portion values, and calorie totals mapped to specific dates.
+* **Workout Records**: Tracks active exercise entries, calculated calories burned, and total duration minutes.
+* **Sleep Logs**: Stores bedtime values, wake-up times, calculated sleep quality scores, and estimated sleep stage profiles.
+
+---
+
+## 📱 Progressive Web App Features
+
+Nutrixa behaves like a native application when downloaded:
+* **Standalone Execution**: Displays without traditional web browser tabs and borders.
+* **Launch Icon**: Direct home screen access on iOS and Android.
+* **Offline Pre-caching**: Core client scripts, assets, styles, and fonts are preserved locally using Workbox strategies.
