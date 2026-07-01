@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuthStore } from "../store/authStore";
 import {
   Area,
   AreaChart,
@@ -47,6 +48,7 @@ const InsightsCalorieTooltip = ({ active, payload }: any) => {
 };
 
 export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
+  const { user } = useAuthStore();
   const [historyItems, setHistoryItems] = useState<UploadAnalysis[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
@@ -353,7 +355,16 @@ export const InsightsPage = ({ onNavigate }: InsightsPageProps) => {
               onClick={() => onNavigate("/profile")}
               className="flex items-center justify-center w-10 h-10 rounded-full bg-[#EBF2EB] border border-[#D4E6D5] text-[#2C3E2B] font-bold text-sm shadow-sm cursor-pointer hover:bg-[#D4E6D5] transition-colors"
             >
-              {profile?.name ? profile.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase() : "AR"}
+              {(() => {
+                const nameToUse = profile?.fullName || user?.name || "User";
+                return nameToUse
+                  .split(" ")
+                  .filter(Boolean)
+                  .map((n: string) => n[0])
+                  .join("")
+                  .substring(0, 2)
+                  .toUpperCase();
+              })()}
             </div>
           </div>
         </div>
